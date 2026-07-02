@@ -4,36 +4,144 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ads Arena Admin</title>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #0f172a; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        body { 
+            background: #0f172a; 
+            color: #fff; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
 
-        /* LOGIN SCREEN */
-        #loginScreen { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 400px; padding: 20px; }
-        #loginScreen h1 { color: #fbbf24; margin-bottom: 30px; }
-        .login-box { background: #1e293b; padding: 30px; border-radius: 10px; border: 1px solid #334155; width: 100%; }
-        .login-box input { width: 100%; background: #0f172a; color: white; border: 1px solid #334155; padding: 12px; margin-bottom: 15px; border-radius: 5px; outline: none; }
-        .login-box input:focus { border-color: #fbbf24; }
-        .login-btn { width: 100%; background: #fbbf24; color: #0f172a; border: none; padding: 12px; border-radius: 5px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        /* === HIDDEN LOGIN PORTAL === */
+        #loginScreen { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            width: 100%; 
+            max-width: 400px; 
+            padding: 20px; 
+        }
+        
+        .login-box { 
+            background: #1e293b; 
+            padding: 40px; 
+            border-radius: 16px; 
+            border: 1px solid #334155; 
+            width: 100%; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: none; 
+        }
+        
+        .login-box.show {
+            display: block; 
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #showLoginBtn {
+            background: transparent;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 12px 30px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+        #showLoginBtn:hover {
+            border-color: #fbbf24;
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+        }
+
+        /* Professional Form Styles */
+        .login-box h2 { 
+            color: #fbbf24; 
+            font-size: 24px; 
+            margin-bottom: 25px; 
+            text-align: center;
+        }
+        .login-box label {
+            display: block;
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+        
+        /* Input wrapper for the eye icon */
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .login-box input { 
+            width: 100%; 
+            background: #0f172a; 
+            color: white; 
+            border: 1px solid #334155; 
+            padding: 12px 40px 12px 12px; /* Space for the eye icon */
+            border-radius: 8px; 
+            outline: none; 
+            font-size: 15px;
+            transition: 0.2s;
+        }
+        .login-box input:focus { 
+            border-color: #fbbf24; 
+            box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+        }
+
+        /* Toggle Password Eye Icon */
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 18px;
+            user-select: none;
+        }
+        .toggle-password:hover { color: #fbbf24; }
+
+        .login-btn { 
+            width: 100%; 
+            background: #fbbf24; 
+            color: #0f172a; 
+            border: none; 
+            padding: 12px; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            font-size: 16px; 
+            cursor: pointer; 
+            transition: 0.2s; 
+        }
         .login-btn:hover { background: #eab308; }
         .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-        #loginError { color: #f87171; margin-top: 10px; text-align: center; font-size: 14px; min-height: 20px; }
+        #loginError { color: #f87171; margin-top: 15px; text-align: center; font-size: 14px; min-height: 20px; }
 
-        /* LOADING ANIMATION (Spinner) */
-        .loader-container { display: none; justify-content: center; margin-top: 15px; }
-        .loader { width: 30px; height: 30px; border: 3px solid #334155; border-top: 3px solid #fbbf24; border-radius: 50%; animation: spin 1s linear infinite; }
+        /* Loading Spinner */
+        .loader-container { display: none; justify-content: center; margin-top: 20px; }
+        .loader { width: 25px; height: 25px; border: 3px solid #334155; border-top: 3px solid #fbbf24; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* DASHBOARD (Hidden by default) */
-        #dashboardApp { display: none; width: 100%; height: 100vh; animation: fadeIn 0.6s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        /* === DASHBOARD === */
+        #dashboardApp { display: none; width: 100vw; height: 100vh; animation: dashFade 0.6s ease-in-out; }
+        @keyframes dashFade { from { opacity: 0; } to { opacity: 1; } }
         
-        .sidebar { width: 260px; background: #1e293b; padding: 20px 0; display: flex; flex-direction: column; border-right: 1px solid #334155; flex-shrink: 0; height: 100vh; }
+        .sidebar { width: 260px; background: #1e293b; padding: 20px 0; display: flex; flex-direction: column; border-right: 1px solid #334155; height: 100vh; }
         .logo { font-size: 22px; font-weight: bold; color: #fbbf24; padding: 0 20px 20px; border-bottom: 1px solid #334155; }
         .menu { list-style: none; margin-top: 10px; flex: 1; overflow-y: auto; }
         .menu li { padding: 12px 20px; cursor: pointer; color: #94a3b8; transition: 0.2s; display: flex; align-items: center; }
@@ -44,7 +152,6 @@
         .main-content { flex: 1; padding: 20px; overflow-y: auto; }
         .page { display: none; animation: fadeIn 0.3s; }
         .page.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
         .card { background: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155; }
@@ -65,10 +172,9 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 
-        input, textarea, select { background: #0f172a; color: white; border: 1px solid #334155; padding: 10px; border-radius: 5px; outline: none; }
+        input, textarea { background: #0f172a; color: white; border: 1px solid #334155; padding: 10px; border-radius: 5px; outline: none; width: 100%; }
         input:focus, textarea:focus { border-color: #fbbf24; }
         button { cursor: pointer; border: none; border-radius: 5px; font-weight: bold; padding: 8px 16px; transition: 0.2s; }
-        button:hover { opacity: 0.8; }
         .btn-gold { background: #fbbf24; color: #0f172a; }
         .btn-blue { background: #60a5fa; color: #fff; }
         .btn-red { background: #f87171; color: #fff; }
@@ -76,27 +182,36 @@
         .chat-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; height: 70vh; }
         @media (max-width: 800px) { .chat-grid { grid-template-columns: 1fr; } }
         .chat-user-item { padding: 10px; background: #0f172a; margin-bottom: 5px; border-radius: 5px; cursor: pointer; border: 1px solid #334155; }
-        .chat-user-item:hover { border-color: #fbbf24; }
     </style>
 </head>
 <body>
 
-    <!-- LOGIN SCREEN -->
+    <!-- === EMPTY SCREEN WITH HIDDEN LOGIN === -->
     <div id="loginScreen">
-        <h1>Ads Arena Admin</h1>
-        <div class="login-box">
-            <input type="email" id="adminEmail" value="muhapaul@gmail.com" readonly style="opacity:0.8; cursor:not-allowed;">
-            <input type="password" id="adminPassword" placeholder="Enter Password (Admin2026)" required>
-            <button class="login-btn" id="loginBtn" onclick="adminLogin()">Login to Dashboard</button>
+        <button id="showLoginBtn" onclick="revealLoginBox()">Click to Login</button>
+
+        <div class="login-box" id="loginBox">
+            <h2>Admin Login</h2>
+            <label>Email Address</label>
+            <input type="email" id="adminEmail" placeholder="Enter your email" required>
+            
+            <label>Password</label>
+            <div class="input-wrapper">
+                <input type="password" id="adminPassword" placeholder="Enter your password" required>
+                <span class="toggle-password" onclick="togglePassword()">👁️</span>
+            </div>
+            
+            <button class="login-btn" id="loginBtn" onclick="adminLogin()">Login</button>
+            
             <div id="loginError"></div>
-            <!-- Loading Animation -->
+            
             <div class="loader-container" id="loadingSpinner">
                 <div class="loader"></div>
             </div>
         </div>
     </div>
 
-    <!-- MAIN DASHBOARD APP -->
+    <!-- === DASHBOARD APP === -->
     <div id="dashboardApp" style="display:flex; width:100vw; height:100vh;">
         <div class="sidebar">
             <div class="logo">Ads Arena</div>
@@ -218,59 +333,90 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // --- LOGIN LOGIC WITH ANIMATION ---
+        // --- STEP 1: REVEAL THE LOGIN BOX ---
+        function revealLoginBox() {
+            const box = document.getElementById('loginBox');
+            const btn = document.getElementById('showLoginBtn');
+            box.classList.add('show');
+            btn.style.display = 'none';
+            document.getElementById('adminEmail').focus(); // Auto-focus email
+        }
+
+        // --- PASSWORD TOGGLE ---
+        function togglePassword() {
+            const passInput = document.getElementById('adminPassword');
+            if (passInput.type === "password") {
+                passInput.type = "text";
+            } else {
+                passInput.type = "password";
+            }
+        }
+
+        // --- STEP 2: LOGIN LOGIC (3 SECOND ANIMATION) ---
         function adminLogin() {
-            const email = document.getElementById('adminEmail').value;
-            const pass = document.getElementById('adminPassword').value;
+            const email = document.getElementById('adminEmail').value.trim();
+            const pass = document.getElementById('adminPassword').value.trim();
             const errorBox = document.getElementById('loginError');
             const loginBtn = document.getElementById('loginBtn');
             const spinner = document.getElementById('loadingSpinner');
 
-            // Clear previous errors
             errorBox.innerText = "";
-            
-            // Show spinner, disable button
+            if(!email || !pass) {
+                errorBox.innerText = "Please enter both email and password.";
+                return;
+            }
+
+            // Start 3-second animation
             spinner.style.display = 'flex';
             loginBtn.disabled = true;
-            loginBtn.innerText = "Logging in...";
+            loginBtn.innerText = "Verifying...";
 
             auth.signInWithEmailAndPassword(email, pass)
                 .then((userCredential) => {
-                    // Wait 1 second before switching for the animation effect
+                    // WAIT 3 SECONDS before switching for the animation
                     setTimeout(() => {
                         document.getElementById('loginScreen').style.display = 'none';
                         document.getElementById('dashboardApp').style.display = 'flex';
-                        // Reset login button just in case
                         loginBtn.disabled = false;
-                        loginBtn.innerText = "Login to Dashboard";
+                        loginBtn.innerText = "Login";
                         spinner.style.display = 'none';
-                    }, 1000);
+                    }, 3000); // <--- 3 Seconds
                 })
                 .catch((error) => {
-                    // Hide spinner, re-enable button
                     spinner.style.display = 'none';
                     loginBtn.disabled = false;
-                    loginBtn.innerText = "Login to Dashboard";
+                    loginBtn.innerText = "Login";
 
-                    // If account doesn't exist, create it (First time setup)
                     if(error.code === 'auth/user-not-found') {
                         auth.createUserWithEmailAndPassword(email, pass)
                             .then(() => {
                                 setTimeout(() => {
                                     document.getElementById('loginScreen').style.display = 'none';
                                     document.getElementById('dashboardApp').style.display = 'flex';
-                                }, 1000);
+                                }, 3000);
                             })
                             .catch((err) => {
-                                errorBox.innerText = "Error creating account: " + err.message;
+                                errorBox.innerText = "Error: " + err.message;
                             });
+                    } else if (error.code === 'auth/wrong-password') {
+                        errorBox.innerText = "Incorrect password.";
                     } else {
-                        errorBox.innerText = "Invalid password. Please use: Admin2026";
+                        errorBox.innerText = "Login failed: " + error.message;
                     }
                 });
         }
 
-        // Check if already logged in (so they don't have to login every time)
+        // Allow "Enter" key to trigger login
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                const loginBox = document.getElementById('loginBox');
+                if (loginBox.classList.contains('show')) {
+                    adminLogin();
+                }
+            }
+        });
+
+        // Auto-login if session is active
         auth.onAuthStateChanged(user => {
             if (user) {
                 document.getElementById('loginScreen').style.display = 'none';
@@ -280,9 +426,7 @@
 
         function adminLogout() {
             if(confirm("Are you sure you want to logout?")) {
-                auth.signOut().then(() => {
-                    location.reload();
-                });
+                auth.signOut().then(() => { location.reload(); });
             }
         }
 
@@ -312,10 +456,8 @@
 
                 if(index < 10) usersHtml += `<tr><td>${name}</td><td>${data.ads_watched||0}</td><td><span class="rank-badge">#${index+1}</span></td></tr>`;
                 allUsersHtml += `<tr><td>${data.telegram_id||'N/A'}</td><td>${name}</td><td>${data.ads_watched||0}</td><td><span class="rank-badge">#${index+1}</span></td></tr>`;
-                
                 let wallet = data.usdt_wallet || 'Not set';
                 payoutHtml += `<tr><td>${name}</td><td>${wallet}</td><td><input type="number" id="amt_${data.id}" placeholder="$" style="width:80px;"></td><td><button class="btn-blue" onclick="sendPayout('${data.id}', '${name}')">Send</button></td></tr>`;
-                
                 refHtml += `<tr><td>${name}</td><td>${data.referrals||0}</td></tr>`;
             });
 
@@ -329,10 +471,9 @@
             document.getElementById('refBody').innerHTML = refHtml || '<tr><td colspan="2">No referrals yet</td></tr>';
         });
 
-        // --- PAYOUT ---
         function sendPayout(userId, name) {
             let amount = parseFloat(document.getElementById(`amt_${userId}`).value);
-            if(!amount || amount <= 0) return alert("Please enter a valid amount.");
+            if(!amount || amount <= 0) return alert("Enter a valid amount.");
             if(confirm(`Send $${amount} to ${name}?`)) {
                 db.collection("users").doc(userId).update({
                     total_paid: firebase.firestore.FieldValue.increment(amount)
@@ -343,7 +484,6 @@
             }
         }
 
-        // --- ANNOUNCE ---
         function sendAnnouncement() {
             let msg = document.getElementById('announceMsg').value;
             if(!msg.trim()) return alert("Write a message first!");
@@ -352,7 +492,7 @@
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 document.getElementById('announceMsg').value = '';
-                alert("Announcement sent to all users!");
+                alert("Announcement sent!");
             });
         }
 
@@ -365,16 +505,14 @@
                     <button class="btn-red" onclick="deleteAnnounce('${doc.id}')" style="padding:2px 10px;">Delete</button>
                 </li>`;
             });
-            document.getElementById('announceList').innerHTML = html || '<li style="color:#64748b;">No announcements sent yet.</li>';
+            document.getElementById('announceList').innerHTML = html || '<li style="color:#64748b;">No announcements sent.</li>';
         });
 
         function deleteAnnounce(id) {
             if(confirm("Delete this announcement?")) db.collection("announcements").doc(id).delete();
         }
 
-        // --- CHAT ---
         let currentChatUserId = null;
-        
         db.collection("messages").orderBy("timestamp", "asc").onSnapshot((snap) => {
             const userListDiv = document.getElementById('chatUserList');
             const chatMessagesDiv = document.getElementById('chatMessages');
@@ -384,12 +522,11 @@
             snap.forEach(doc => {
                 const data = doc.data();
                 usersWithChat.add(data.telegram_id);
-                
                 if(data.telegram_id === currentChatUserId) {
                     let align = data.from_admin ? 'flex-end' : 'flex-start';
                     let bg = data.from_admin ? '#fbbf24' : '#334155';
                     let color = data.from_admin ? '#000' : '#fff';
-                    chatHtml += `<div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:70%; word-break: break-all;">${data.message}</div>`;
+                    chatHtml += `<div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:70%;">${data.message}</div>`;
                 }
             });
             
@@ -408,31 +545,26 @@
         function selectChatUser(userId) {
             currentChatUserId = userId;
             document.getElementById('chatHeader').innerText = `Chatting with User: ${userId}`;
-            document.getElementById('chatMessages').innerHTML = '<div style="color:#64748b;">Loading messages...</div>';
+            document.getElementById('chatMessages').innerHTML = '<div style="color:#64748b;">Loading...</div>';
         }
 
         function sendAdminReply() {
             const input = document.getElementById('adminReplyInput');
             const msg = input.value.trim();
             if(!msg || !currentChatUserId) return alert("Select a user and type a message.");
-            
             db.collection("messages").add({
                 telegram_id: currentChatUserId,
                 message: msg,
                 from_admin: true,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                input.value = '';
-            });
+            }).then(() => { input.value = ''; });
         }
 
-        // --- SETTINGS ---
         function changeAdminPassword() {
             const newP = document.getElementById('newPass').value;
             const conf = document.getElementById('confPass').value;
             if(!newP || !conf) return alert("Please fill all fields.");
             if(newP !== conf) return alert("New passwords do not match.");
-            
             const user = auth.currentUser;
             if(user) {
                 user.updatePassword(newP).then(() => {
@@ -440,15 +572,10 @@
                     document.getElementById('currPass').value = '';
                     document.getElementById('newPass').value = '';
                     document.getElementById('confPass').value = '';
-                }).catch((err) => {
-                    alert("Error changing password: " + err.message);
-                });
-            } else {
-                alert("You are not logged in.");
+                }).catch((err) => { alert("Error: " + err.message); });
             }
         }
 
-        // --- CHART ---
         const ctx = document.getElementById('adsChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
