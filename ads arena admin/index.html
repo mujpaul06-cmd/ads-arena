@@ -20,21 +20,14 @@
             overflow: hidden; 
         }
 
-        /* === OVERLAY TO HIDE DASHBOARD UNTIL LOGIN === */
+        /* === HARD BLACKOUT OVERLAY (Prevents split screen 100%) === */
         #overlay {
             position: fixed;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
             background: #0f172a;
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: opacity 0.5s ease;
-        }
-        #overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
+            z-index: 9998;
+            display: block;
         }
 
         /* === LOGIN PORTAL === */
@@ -154,7 +147,6 @@
 
         /* === DASHBOARD === */
         #dashboardApp { display: none; width: 100vw; height: 100vh; }
-        @keyframes dashFade { from { opacity: 0; } to { opacity: 1; } }
         
         .sidebar { width: 260px; background: #1e293b; padding: 20px 0; display: flex; flex-direction: column; border-right: 1px solid #334155; height: 100vh; }
         .logo { font-size: 22px; font-weight: bold; color: #fbbf24; padding: 0 20px 20px; border-bottom: 1px solid #334155; }
@@ -165,7 +157,7 @@
         .logout { color: #f87171 !important; margin-top: auto; border-top: 1px solid #334155; }
 
         .main-content { flex: 1; padding: 20px; overflow-y: auto; }
-        .page { display: none; animation: fadeIn 0.3s; }
+        .page { display: none; }
         .page.active { display: block; }
 
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
@@ -201,10 +193,8 @@
 </head>
 <body>
 
-    <!-- 1. DARK OVERLAY (Prevents split screen) -->
-    <div id="overlay">
-        <div style="text-align:center; color:#64748b;">Loading Secure Portal...</div>
-    </div>
+    <!-- 1. HARD BLACKOUT OVERLAY -->
+    <div id="overlay"></div>
 
     <!-- 2. LOGIN SCREEN -->
     <div id="loginScreen">
@@ -353,11 +343,14 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // --- HIDE OVERLAY & REVEAL LOGIN ---
-        setTimeout(() => {
-            document.getElementById('overlay').classList.add('hidden');
-        }, 500);
+        // --- FORCE LOGOUT ON LOAD (Fixes the stuck session) ---
+        auth.signOut().then(() => {
+            console.log("Old session cleared.");
+        }).catch((error) => {
+            console.log("No active session to clear.");
+        });
 
+        // --- REVEAL LOGIN ---
         function revealLoginBox() {
             const box = document.getElementById('loginBox');
             const btn = document.getElementById('showLoginBtn');
@@ -391,8 +384,8 @@
 
             auth.signInWithEmailAndPassword(email, pass)
                 .then((userCredential) => {
-                    // 3 SECOND ANIMATION
                     setTimeout(() => {
+                        document.getElementById('overlay').style.display = 'none'; // Remove blackout
                         document.getElementById('loginScreen').style.display = 'none';
                         document.getElementById('dashboardApp').style.display = 'flex';
                         loginBtn.disabled = false;
@@ -405,12 +398,12 @@
                     loginBtn.disabled = false;
                     loginBtn.innerText = "Login";
 
-                    // Fix for invalid credentials error
                     if(error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-                        // Automatically create the account if it doesn't exist
+                        // Create account if it doesn't exist
                         auth.createUserWithEmailAndPassword(email, pass)
                             .then(() => {
                                 setTimeout(() => {
+                                    document.getElementById('overlay').style.display = 'none';
                                     document.getElementById('loginScreen').style.display = 'none';
                                     document.getElementById('dashboardApp').style.display = 'flex';
                                 }, 3000);
@@ -437,15 +430,6 @@
                 if (loginBox.classList.contains('show')) {
                     adminLogin();
                 }
-            }
-        });
-
-        // Auto-login if session is active
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('dashboardApp').style.display = 'flex';
-                document.getElementById('overlay').classList.add('hidden');
             }
         });
 
