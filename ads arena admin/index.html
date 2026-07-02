@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ads Arena Admin</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #0f172a; color: #fff; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background: #1e293b; padding: 20px 0; display: flex; flex-direction: column; border-right: 1px solid #334155; }
+        .logo { font-size: 22px; font-weight: bold; color: #fbbf24; padding: 0 20px 20px; border-bottom: 1px solid #334155; }
+        .menu { list-style: none; margin-top: 10px; flex: 1; overflow-y: auto; }
+        .menu li { padding: 12px 20px; cursor: pointer; color: #94a3b8; transition: 0.2s; display: flex; align-items: center; }
+        .menu li:hover, .menu li.active { background: #334155; color: #fff; border-left: 3px solid #fbbf24; }
+        .menu li svg { margin-right: 12px; width: 20px; }
+        .logout { color: #f87171 !important; margin-top: auto; border-top: 1px solid #334155; }
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; }
+        .page { display: none; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Stats Cards */
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .card { background: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155; }
+        .card-title { color: #94a3b8; font-size: 14px; }
+        .card-value { font-size: 28px; font-weight: bold; color: #4ade80; }
+        .card-value.yellow { color: #fbbf24; }
+        .card-value.blue { color: #60a5fa; }
+
+        /* Dashboard Layout */
+        .dashboard-bottom { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; height: 400px; }
+        @media (max-width: 1000px) { .grid { grid-template-columns: 1fr 1fr; } .dashboard-bottom { grid-template-columns: 1fr; } }
+        
+        .chart-container { background: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155; }
+        .table-container { background: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { text-align: left; color: #94a3b8; padding-bottom: 10px; border-bottom: 1px solid #334155; }
+        td { padding: 10px 0; border-bottom: 1px solid #1e293b; }
+        .rank-badge { background: #334155; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo">Ads Arena</div>
+        <ul class="menu">
+            <li class="active" onclick="switchPage('dashboard', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"/></svg> Dashboard</li>
+            <li onclick="switchPage('users', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg> Users</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Ads Activity</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> Referrals</li>
+            <li onclick="switchPage('payouts', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Payouts</li>
+            <li onclick="switchPage('announce', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.06"/></svg> Announce</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg> Message</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg> Settings</li>
+            <li class="logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg> Logout</li>
+        </ul>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <!-- DASHBOARD PAGE -->
+        <div id="dashboard" class="page active">
+            <h2 style="margin-bottom: 20px;">Dashboard Overview</h2>
+            <div class="grid">
+                <div class="card"><div class="card-title">Total Users</div><div class="card-value" id="totalUsers">0</div></div>
+                <div class="card"><div class="card-title">Ads Watched</div><div class="card-value green" id="totalAds">0</div></div>
+                <div class="card"><div class="card-title">Total Referrals</div><div class="card-value blue" id="totalRef">0</div></div>
+                <div class="card"><div class="card-title">Total Paid ($)</div><div class="card-value yellow" id="totalPaid">$0</div></div>
+            </div>
+            <div class="dashboard-bottom">
+                <div class="chart-container"><canvas id="adsChart"></canvas></div>
+                <div class="table-container">
+                    <h4 style="margin-bottom: 10px;">Recent Users</h4>
+                    <table><thead><tr><th>User</th><th>Ads</th><th>Rank</th></tr></thead><tbody id="userTableBody"></tbody></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- USERS PAGE -->
+        <div id="users" class="page">
+            <h2>All Users</h2>
+            <div class="table-container" style="height: auto; margin-top: 20px;">
+                <table><thead><tr><th>Telegram ID</th><th>Name</th><th>Ads</th><th>Rank</th></tr></thead><tbody id="allUsersBody"></tbody></table>
+            </div>
+        </div>
+
+        <!-- PAYOUTS PAGE -->
+        <div id="payouts" class="page">
+            <h2>User Payouts</h2>
+            <div class="table-container" style="height: auto; margin-top: 20px;">
+                <table><thead><tr><th>User</th><th>USDT Wallet</th><th>Send Amount</th><th>Action</th></tr></thead><tbody id="payoutBody"></tbody></table>
+            </div>
+        </div>
+
+        <!-- ANNOUNCE PAGE -->
+        <div id="announce" class="page">
+            <h2>Send Announcement</h2>
+            <div style="background:#1e293b; padding:20px; border-radius:10px; border:1px solid #334155; margin-top:20px;">
+                <textarea id="announceMsg" placeholder="Write your message to all users..." style="width:100%; height:100px; background:#0f172a; color:white; border:1px solid #334155; padding:10px; border-radius:5px; resize:none;"></textarea>
+                <button onclick="sendAnnouncement()" style="margin-top:10px; background:#fbbf24; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer;">Send to All Users</button>
+            </div>
+            <div style="margin-top:20px; background:#1e293b; padding:20px; border-radius:10px; border:1px solid #334155;">
+                <h4>Previous Announcements</h4>
+                <ul id="announceList" style="list-style:none; margin-top:10px;"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // FIREBASE SETUP
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIvkzIWM-0giOeJjoiYHv6Sgkb9VC70GE",
+            authDomain: "ads-arena-850c5.firebaseapp.com",
+            projectId: "ads-arena-850c5",
+            storageBucket: "ads-arena-850c5.firebasestorage.app",
+            messagingSenderId: "622761057730",
+            appId: "1:622761057730:web:39a584220c3b291c768a5b"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // NAVIGATION
+        function switchPage(pageId, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            document.querySelectorAll('.menu li').forEach(li => li.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        // DASHBOARD DATA LOADING
+        db.collection("users").onSnapshot((snapshot) => {
+            let totalUsers = snapshot.size;
+            let totalAds = 0, totalRef = 0, totalPaid = 0;
+            let usersHtml = '', allUsersHtml = '', payoutHtml = '';
+            let rank = 1;
+
+            // Sort by ads watched for ranking
+            let usersArray = [];
+            snapshot.forEach(doc => usersArray.push({id: doc.id, ...doc.data()}));
+            usersArray.sort((a,b) => (b.ads_watched||0) - (a.ads_watched||0));
+
+            usersArray.forEach((data, index) => {
+                totalAds += (data.ads_watched||0);
+                totalRef += (data.referrals||0);
+                totalPaid += (data.total_paid||0);
+
+                let name = data.username || data.first_name || 'Anonymous';
+                
+                // Dashboard Top Users
+                if(index < 10) {
+                    usersHtml += `<tr><td>${name}</td><td>${data.ads_watched||0}</td><td><span class="rank-badge">#${index+1}</span></td></tr>`;
+                }
+                // All Users
+                allUsersHtml += `<tr><td>${data.telegram_id||'N/A'}</td><td>${name}</td><td>${data.ads_watched||0}</td><td><span class="rank-badge">#${index+1}</span></td></tr>`;
+                
+                // Payouts
+                let wallet = data.usdt_wallet || 'Not set';
+                payoutHtml += `<tr><td>${name}</td><td>${wallet}</td><td><input type="number" id="amt_${data.id}" placeholder="Amount $" style="background:#0f172a; color:white; border:1px solid #334155; padding:5px; width:80px; border-radius:4px;"></td><td><button onclick="sendPayout('${data.id}', '${name}')" style="background:#60a5fa; border:none; padding:5px 15px; border-radius:4px; cursor:pointer;">Send</button></td></tr>`;
+            });
+
+            document.getElementById('totalUsers').innerText = totalUsers;
+            document.getElementById('totalAds').innerText = totalAds;
+            document.getElementById('totalRef').innerText = totalRef;
+            document.getElementById('totalPaid').innerText = '$' + totalPaid.toFixed(2);
+            document.getElementById('userTableBody').innerHTML = usersHtml || '<tr><td colspan="3">No users yet</td></tr>';
+            document.getElementById('allUsersBody').innerHTML = allUsersHtml || '<tr><td colspan="4">No users yet</td></tr>';
+            document.getElementById('payoutBody').innerHTML = payoutHtml || '<tr><td colspan="4">No users with wallets yet</td></tr>';
+        });
+
+        // PAYOUT FUNCTION
+        function sendPayout(userId, name) {
+            let amount = parseFloat(document.getElementById(`amt_${userId}`).value);
+            if(!amount || amount <= 0) return alert("Please enter a valid amount.");
+            if(confirm(`Send $${amount} to ${name}?`)) {
+                db.collection("users").doc(userId).update({
+                    total_paid: firebase.firestore.FieldValue.increment(amount)
+                }).then(() => {
+                    alert(`$${amount} recorded for ${name}!`);
+                    document.getElementById(`amt_${userId}`).value = '';
+                });
+            }
+        }
+
+        // ANNOUNCE FUNCTION
+        function sendAnnouncement() {
+            let msg = document.getElementById('announceMsg').value;
+            if(!msg.trim()) return alert("Write a message first!");
+            db.collection("announcements").add({
+                message: msg,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                document.getElementById('announceMsg').value = '';
+                alert("Announcement sent to all users!");
+            });
+        }
+
+        // LOAD ANNOUNCEMENTS
+        db.collection("announcements").orderBy("timestamp", "desc").onSnapshot((snap) => {
+            let html = '';
+            snap.forEach(doc => {
+                let data = doc.data();
+                html += `<li style="background:#0f172a; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>${data.message}</span>
+                    <button onclick="deleteAnnounce('${doc.id}')" style="background:#f87171; border:none; padding:2px 10px; border-radius:4px; cursor:pointer;">Delete</button>
+                </li>`;
+            });
+            document.getElementById('announceList').innerHTML = html || '<li style="color:#64748b;">No announcements sent yet.</li>';
+        });
+
+        function deleteAnnounce(id) {
+            if(confirm("Delete this announcement?")) db.collection("announcements").doc(id).delete();
+        }
+
+        // DUMMY CHART DATA FOR NOW (We will make it read real data later)
+        const ctx = document.getElementById('adsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Ads Watched',
+                    data: [0, 0, 0, 0, 0, 0, 0],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.3, fill: true
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } }
+            }
+        });
+    </script>
+</body>
+</html>
