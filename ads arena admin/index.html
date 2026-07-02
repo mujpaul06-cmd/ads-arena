@@ -20,7 +20,24 @@
             overflow: hidden; 
         }
 
-        /* === HIDDEN LOGIN PORTAL === */
+        /* === OVERLAY TO HIDE DASHBOARD UNTIL LOGIN === */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: #0f172a;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        #overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* === LOGIN PORTAL === */
         #loginScreen { 
             display: flex; 
             flex-direction: column; 
@@ -28,6 +45,7 @@
             width: 100%; 
             max-width: 400px; 
             padding: 20px; 
+            z-index: 10000; /* Above the overlay */
         }
         
         .login-box { 
@@ -59,6 +77,7 @@
             cursor: pointer;
             transition: 0.3s;
             font-size: 14px;
+            z-index: 10000;
         }
         #showLoginBtn:hover {
             border-color: #fbbf24;
@@ -66,7 +85,6 @@
             background: rgba(251, 191, 36, 0.1);
         }
 
-        /* Professional Form Styles */
         .login-box h2 { 
             color: #fbbf24; 
             font-size: 24px; 
@@ -80,7 +98,6 @@
             margin-bottom: 6px;
         }
         
-        /* Input wrapper for the eye icon */
         .input-wrapper {
             position: relative;
             width: 100%;
@@ -92,7 +109,7 @@
             background: #0f172a; 
             color: white; 
             border: 1px solid #334155; 
-            padding: 12px 40px 12px 12px; /* Space for the eye icon */
+            padding: 12px 40px 12px 12px;
             border-radius: 8px; 
             outline: none; 
             font-size: 15px;
@@ -103,7 +120,6 @@
             box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
         }
 
-        /* Toggle Password Eye Icon */
         .toggle-password {
             position: absolute;
             right: 12px;
@@ -132,13 +148,12 @@
         .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         #loginError { color: #f87171; margin-top: 15px; text-align: center; font-size: 14px; min-height: 20px; }
 
-        /* Loading Spinner */
         .loader-container { display: none; justify-content: center; margin-top: 20px; }
         .loader { width: 25px; height: 25px; border: 3px solid #334155; border-top: 3px solid #fbbf24; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* === DASHBOARD === */
-        #dashboardApp { display: none; width: 100vw; height: 100vh; animation: dashFade 0.6s ease-in-out; }
+        #dashboardApp { display: none; width: 100vw; height: 100vh; }
         @keyframes dashFade { from { opacity: 0; } to { opacity: 1; } }
         
         .sidebar { width: 260px; background: #1e293b; padding: 20px 0; display: flex; flex-direction: column; border-right: 1px solid #334155; height: 100vh; }
@@ -186,7 +201,12 @@
 </head>
 <body>
 
-    <!-- === EMPTY SCREEN WITH HIDDEN LOGIN === -->
+    <!-- 1. DARK OVERLAY (Prevents split screen) -->
+    <div id="overlay">
+        <div style="text-align:center; color:#64748b;">Loading Secure Portal...</div>
+    </div>
+
+    <!-- 2. LOGIN SCREEN -->
     <div id="loginScreen">
         <button id="showLoginBtn" onclick="revealLoginBox()">Click to Login</button>
 
@@ -211,7 +231,7 @@
         </div>
     </div>
 
-    <!-- === DASHBOARD APP === -->
+    <!-- 3. DASHBOARD APP -->
     <div id="dashboardApp" style="display:flex; width:100vw; height:100vh;">
         <div class="sidebar">
             <div class="logo">Ads Arena</div>
@@ -333,26 +353,25 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // --- STEP 1: REVEAL THE LOGIN BOX ---
+        // --- HIDE OVERLAY & REVEAL LOGIN ---
+        setTimeout(() => {
+            document.getElementById('overlay').classList.add('hidden');
+        }, 500);
+
         function revealLoginBox() {
             const box = document.getElementById('loginBox');
             const btn = document.getElementById('showLoginBtn');
             box.classList.add('show');
             btn.style.display = 'none';
-            document.getElementById('adminEmail').focus(); // Auto-focus email
+            document.getElementById('adminEmail').focus();
         }
 
-        // --- PASSWORD TOGGLE ---
         function togglePassword() {
             const passInput = document.getElementById('adminPassword');
-            if (passInput.type === "password") {
-                passInput.type = "text";
-            } else {
-                passInput.type = "password";
-            }
+            passInput.type = passInput.type === "password" ? "text" : "password";
         }
 
-        // --- STEP 2: LOGIN LOGIC (3 SECOND ANIMATION) ---
+        // --- LOGIN LOGIC ---
         function adminLogin() {
             const email = document.getElementById('adminEmail').value.trim();
             const pass = document.getElementById('adminPassword').value.trim();
@@ -366,28 +385,29 @@
                 return;
             }
 
-            // Start 3-second animation
             spinner.style.display = 'flex';
             loginBtn.disabled = true;
             loginBtn.innerText = "Verifying...";
 
             auth.signInWithEmailAndPassword(email, pass)
                 .then((userCredential) => {
-                    // WAIT 3 SECONDS before switching for the animation
+                    // 3 SECOND ANIMATION
                     setTimeout(() => {
                         document.getElementById('loginScreen').style.display = 'none';
                         document.getElementById('dashboardApp').style.display = 'flex';
                         loginBtn.disabled = false;
                         loginBtn.innerText = "Login";
                         spinner.style.display = 'none';
-                    }, 3000); // <--- 3 Seconds
+                    }, 3000);
                 })
                 .catch((error) => {
                     spinner.style.display = 'none';
                     loginBtn.disabled = false;
                     loginBtn.innerText = "Login";
 
-                    if(error.code === 'auth/user-not-found') {
+                    // Fix for invalid credentials error
+                    if(error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                        // Automatically create the account if it doesn't exist
                         auth.createUserWithEmailAndPassword(email, pass)
                             .then(() => {
                                 setTimeout(() => {
@@ -396,17 +416,21 @@
                                 }, 3000);
                             })
                             .catch((err) => {
-                                errorBox.innerText = "Error: " + err.message;
+                                if(err.code === 'auth/email-already-in-use') {
+                                    errorBox.innerText = "Account exists but password is wrong. Try again.";
+                                } else {
+                                    errorBox.innerText = "Error: " + err.message;
+                                }
                             });
                     } else if (error.code === 'auth/wrong-password') {
-                        errorBox.innerText = "Incorrect password.";
+                        errorBox.innerText = "Incorrect password. Try again.";
                     } else {
                         errorBox.innerText = "Login failed: " + error.message;
                     }
                 });
         }
 
-        // Allow "Enter" key to trigger login
+        // Enter Key support
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 const loginBox = document.getElementById('loginBox');
@@ -421,6 +445,7 @@
             if (user) {
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('dashboardApp').style.display = 'flex';
+                document.getElementById('overlay').classList.add('hidden');
             }
         });
 
@@ -430,7 +455,7 @@
             }
         }
 
-        // --- NAVIGATION ---
+        // --- NAVIGATION & DATA LOADING ---
         function switchPage(pageId, el) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
@@ -438,7 +463,6 @@
             el.classList.add('active');
         }
 
-        // --- DASHBOARD DATA LOADING ---
         db.collection("users").onSnapshot((snapshot) => {
             let totalUsers = snapshot.size;
             let totalAds = 0, totalRef = 0, totalPaid = 0;
