@@ -36,6 +36,7 @@
         .intro-logo { font-size:52px; font-weight:900; color:#fff; letter-spacing:-2px; text-align:center; line-height:1; }
         .intro-logo span { color:#3b82f6; }
         .intro-sub { color:#94a3b8; font-size:14px; letter-spacing:4px; margin-top:10px; }
+        .intro-credit { color:#64748b; font-size:12px; margin-top:15px; font-weight:400; }
         .intro-timer {
             margin-top:40px; width:60px; height:60px; border-radius:50%;
             border:3px solid #3b82f6; display:flex; justify-content:center; align-items:center;
@@ -136,6 +137,7 @@
     <div id="introScreen">
         <div class="intro-logo">ADS <span>ARENA</span></div>
         <div class="intro-sub">Watch & Earn</div>
+        <div class="intro-credit">Created by #06</div>
         <div class="intro-timer" id="timerDisplay">3</div>
     </div>
 
@@ -148,10 +150,10 @@
     <!-- HOME -->
     <div id="homePage" class="page active">
         <div class="profile-card">
-            <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=3b82f6&color=fff&rounded=true" alt="Avatar">
+            <img id="userAvatar" src="" alt="Avatar">
             <div class="info">
                 <h2 id="userName">Loading...</h2>
-                <p id="userIdDisplay">ID: 12345678</p>
+                <p id="userIdDisplay">ID: Loading...</p>
             </div>
         </div>
         <div class="stats-grid">
@@ -234,9 +236,9 @@
     <!-- PROFILE / CHAT -->
     <div id="profilePage" class="page">
         <div class="profile-page">
-            <img id="profileAvatar" class="avatar" src="https://ui-avatars.com/api/?name=User&background=3b82f6&color=fff&rounded=true" alt="Avatar">
-            <h2 id="profileName">Jean Paul</h2>
-            <p class="pid" id="profileId">ID: 12345678</p>
+            <img id="profileAvatar" class="avatar" src="" alt="Avatar">
+            <h2 id="profileName">Loading...</h2>
+            <p class="pid" id="profileId">ID: Loading...</p>
             
             <div class="chat-box">
                 <h4 style="color:var(--sub); margin-bottom:5px;">💬 Contact Admin</h4>
@@ -272,12 +274,19 @@
         // ==================== TELEGRAM ====================
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
-        const tgUser = tg.initDataUnsafe?.user || { id: "demo_"+Date.now(), first_name: "Jean Paul" };
+
+        // ==================== READ REFERRAL CODE FROM URL ====================
+        const urlParams = new URLSearchParams(window.location.search);
+        const referralCodeFromUrl = urlParams.get('start');
+
+        // ==================== GET USER DATA ====================
+        const tgUser = tg.initDataUnsafe?.user || { id: "demo_"+Date.now(), first_name: "Player" };
         const telegramId = String(tgUser.id);
         const userName = tgUser.first_name || "Player";
         const userAvatar = tgUser.photo_url || `https://ui-avatars.com/api/?name=${userName}&background=3b82f6&color=fff&rounded=true`;
 
         let currentUserId = null, currentUserRef = null;
+        let myReferralCode = null;
 
         // ==================== INTRO TIMER ====================
         let countdown = 3;
@@ -295,37 +304,89 @@
         // ==================== INIT USER ====================
         async function initUser() {
             try {
+                // 1. Check if the user exists
                 const q = await db.collection("users").where("telegram_id", "==", telegramId).get();
                 let userData;
+                let isNewUser = false;
+
                 if (q.empty) {
-                    const referralCode = "ARENA"+Math.floor(10000+Math.random()*90000);
+                    isNewUser = true;
+                    // Generate a unique referral code for this new user
+                    myReferralCode = "ARENA"+Math.floor(10000+Math.random()*90000);
+                    
                     const newUser = {
-                        telegram_id: telegramId, first_name: userName, avatar_url: userAvatar,
-                        points_balance: 0, ads_watched: 0, referrals: 0, ref_earnings: 0,
-                        referral_code: referralCode
+                        telegram_id: telegramId, 
+                        first_name: userName, 
+                        avatar_url: userAvatar,
+                        points_balance: 0, 
+                        ads_watched: 0, 
+                        referrals: 0, 
+                        ref_earnings: 0,
+                        referral_code: myReferralCode,
+                        referred_by: null // Who invited this user?
                     };
                     const doc = await db.collection("users").add(newUser);
-                    currentUserId = doc.id; currentUserRef = doc; userData = newUser;
+                    currentUserId = doc.id; 
+                    currentUserRef = doc; 
+                    userData = newUser;
                 } else {
-                    currentUserId = q.docs[0].id; currentUserRef = db.collection("users").doc(currentUserId);
+                    currentUserId = q.docs[0].id; 
+                    currentUserRef = db.collection("users").doc(currentUserId);
                     userData = q.docs[0].data();
-                    document.getElementById('adsWatchedDisplay').innerText = userData.ads_watched||0;
-                    document.getElementById('pointsDisplay').innerText = userData.points_balance||0;
-                    document.getElementById('totalRefs').innerText = userData.referrals||0;
-                    document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${userData.referral_code}`;
-                    calculateUSD(userData.ads_watched||0);
+                    myReferralCode = userData.referral_code;
                 }
+
+                // ==================== THE REFERRAL LOGIC ====================
+                // 2. If this is a NEW user AND they came through a referral link
+                if (isNewUser && referralCodeFromUrl) {
+                    console.log("New user joined via referral code:", referralCodeFromUrl);
+                    
+                    // Find the inviter (the person who owns the referral code)
+                    const inviterQuery = await db.collection("users").where("referral_code", "==", referralCodeFromUrl).get();
+                    
+                    if (!inviterQuery.empty) {
+                        const inviterDoc = inviterQuery.docs[0];
+                        const inviterId = inviterDoc.id;
+                        
+                        // 3. Update the inviter's stats in the database
+                        await db.collection("users").doc(inviterId).update({
+                            referrals: firebase.firestore.FieldValue.increment(1)
+                        });
+                        
+                        // 4. Save the inviter's ID to the new user's record so they show up in the inviter's list
+                        await currentUserRef.update({
+                            referred_by: inviterId // Store the inviter's Document ID
+                        });
+                        
+                        console.log("Referral counted successfully!");
+                    }
+                }
+
+                // ==================== UPDATE UI ====================
                 document.getElementById('userName').innerText = userName;
                 document.getElementById('userIdDisplay').innerText = `ID: ${telegramId}`;
                 document.getElementById('profileName').innerText = userName;
                 document.getElementById('profileId').innerText = `ID: ${telegramId}`;
                 document.getElementById('userAvatar').src = userAvatar;
                 document.getElementById('profileAvatar').src = userAvatar;
-                listenForUpdates(); loadRankings(); loadNews(); loadReferrals();
-            } catch(e) { console.error(e); }
+                
+                document.getElementById('adsWatchedDisplay').innerText = userData.ads_watched||0;
+                document.getElementById('pointsDisplay').innerText = userData.points_balance||0;
+                document.getElementById('totalRefs').innerText = userData.referrals||0;
+                document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
+                
+                calculateUSD(userData.ads_watched||0);
+
+                // Start real-time listeners
+                listenForUpdates(); 
+                loadRankings(); 
+                loadNews(); 
+                loadReferrals();
+
+            } catch(e) { console.error("Error initializing user:", e); }
         }
 
-        // ==================== LISTENER ====================
+        // ==================== REAL-TIME LISTENER ====================
         function listenForUpdates() {
             if(!currentUserRef) return;
             currentUserRef.onSnapshot(doc => {
@@ -335,7 +396,8 @@
                     document.getElementById('pointsDisplay').innerText = d.points_balance||0;
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(d.ads_watched||0);
-                    loadRankings(); loadReferrals();
+                    loadRankings(); 
+                    loadReferrals();
                 }
             });
         }
@@ -353,14 +415,16 @@
         // ==================== WATCH AD ====================
         function watchAd() {
             const btn = document.getElementById('watchAdBtn');
-            btn.disabled = true; btn.innerText = "Loading Ad...";
+            btn.disabled = true; 
+            btn.innerText = "Loading Ad...";
             
             // Trigger Monetag SDK
             if (typeof show_11083093 !== 'undefined') {
                 show_11083093();
             } else {
                 tg.showAlert("Ad network loading. Please try again.");
-                btn.disabled = false; btn.innerText = "▶ Watch Ad & Earn";
+                btn.disabled = false; 
+                btn.innerText = "▶ Watch Ad & Earn";
                 return;
             }
             
@@ -370,7 +434,8 @@
                     points_balance: firebase.firestore.FieldValue.increment(10),
                     ads_watched: firebase.firestore.FieldValue.increment(1)
                 }).then(() => {
-                    btn.disabled = false; btn.innerText = "▶ Watch Ad & Earn";
+                    btn.disabled = false; 
+                    btn.innerText = "▶ Watch Ad & Earn";
                 });
             }, 3000);
         }
@@ -392,25 +457,35 @@
         // ==================== REFERRALS ====================
         function copyReferralLink() {
             const i = document.getElementById('refLinkInput');
-            i.select(); navigator.clipboard.writeText(i.value);
+            i.select(); 
+            navigator.clipboard.writeText(i.value);
             tg.showAlert("Link copied!");
         }
+        
         function shareReferral() {
             const link = document.getElementById('refLinkInput').value;
             if (navigator.share) {
                 navigator.share({ title: 'Ads Arena', text: 'Join me on Ads Arena and earn points!', url: link });
-            } else { copyReferralLink(); }
+            } else { 
+                copyReferralLink(); 
+            }
         }
+        
         async function loadReferrals() {
             try {
-                const snap = await db.collection("users").where("referred_by", "==", telegramId).get();
+                // We look for users where the 'referred_by' field matches the CURRENT user's Document ID
+                const snap = await db.collection("users").where("referred_by", "==", currentUserId).get();
                 let html = '';
-                snap.forEach(doc => {
-                    const d = doc.data();
-                    html += `<div class="ref-item"><span>👤 ${d.first_name||'User'}</span><span style="color:var(--sub);">${d.telegram_id}</span></div>`;
-                });
-                document.getElementById('refListContainer').innerHTML = html || '<p style="color:var(--sub); text-align:center;">No referrals yet.</p>';
-            } catch (e) { console.log("Referral error:", e); }
+                if(snap.empty) {
+                    html = '<p style="color:var(--sub); text-align:center;">No referrals yet.</p>';
+                } else {
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        html += `<div class="ref-item"><span>👤 ${d.first_name||'User'}</span><span style="color:var(--sub);">${d.telegram_id}</span></div>`;
+                    });
+                }
+                document.getElementById('refListContainer').innerHTML = html;
+            } catch (e) { console.log("Referral load error:", e); }
         }
 
         // ==================== NEWS ====================
@@ -434,14 +509,18 @@
             input.addEventListener('input', () => {
                 const val = parseFloat(input.value);
                 if(val >= 5 && val <= usd) {
-                    btn.className = 'btn-withdraw active'; btn.innerText = '💸 Withdraw Now';
+                    btn.className = 'btn-withdraw active'; 
+                    btn.innerText = '💸 Withdraw Now';
                 } else if (val < 5 && val > 0) {
-                    btn.className = 'btn-withdraw disabled'; btn.innerText = '⚠️ Min $5.00';
+                    btn.className = 'btn-withdraw disabled'; 
+                    btn.innerText = '⚠️ Min $5.00';
                 } else {
-                    btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now';
+                    btn.className = 'btn-withdraw disabled'; 
+                    btn.innerText = 'Withdraw Now';
                 }
             });
         }
+        
         function submitWithdraw() {
             const btn = document.getElementById('withdrawBtn');
             if(btn.className.includes('disabled')) return tg.showAlert("Minimum is $5.00.");
@@ -449,12 +528,17 @@
             const a = parseFloat(document.getElementById('withdrawAmount').value);
             if(!w) return tg.showAlert("Enter a wallet address.");
             db.collection("withdrawals").add({
-                user_id: telegramId, user_name: userName, wallet: w, amount: a, status: "pending"
+                user_id: telegramId, 
+                user_name: userName, 
+                wallet: w, 
+                amount: a, 
+                status: "pending"
             }).then(() => {
                 tg.showAlert("Withdrawal sent to Admin!");
                 document.getElementById('walletAddress').value = '';
                 document.getElementById('withdrawAmount').value = '';
-                btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now';
+                btn.className = 'btn-withdraw disabled'; 
+                btn.innerText = 'Withdraw Now';
             });
         }
 
@@ -463,7 +547,10 @@
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
             db.collection("messages").add({
-                telegram_id: telegramId, username: userName, message: m, from_admin: false
+                telegram_id: telegramId, 
+                username: userName, 
+                message: m, 
+                from_admin: false
             }).then(() => {
                 tg.showAlert("Sent to Admin!");
                 document.getElementById('adminMessageInput').value = '';
