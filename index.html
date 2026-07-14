@@ -61,11 +61,10 @@
         .profile-card .info h2 { font-size:18px; font-weight:700; }
         .profile-card .info p { color:var(--sub); font-size:13px; margin-top:2px; }
 
-        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px; }
+        .stats-grid { display:grid; grid-template-columns:1fr; gap:15px; margin-bottom:20px; max-width: 300px; margin-left: auto; margin-right: auto; }
         .stat-box { background:var(--card); border-radius:16px; padding:20px; text-align:center; border:1px solid var(--border); }
         .stat-box .icon-circle { width:40px; height:40px; border-radius:50%; display:flex; justify-content:center; align-items:center; margin:0 auto 10px; font-size:18px; }
         .stat-box .icon-circle.blue { background:rgba(59,130,246,0.2); color:var(--blue); }
-        .stat-box .icon-circle.gold { background:rgba(251,191,36,0.2); color:var(--gold); }
         .stat-box .num { font-size:24px; font-weight:700; display:block; }
         .stat-box .label { font-size:12px; color:var(--sub); margin-top:5px; display:block; }
 
@@ -161,11 +160,6 @@
                 <div class="icon-circle blue">👁️</div>
                 <span class="num" id="adsWatchedDisplay">0</span>
                 <span class="label">Ads Watched</span>
-            </div>
-            <div class="stat-box">
-                <div class="icon-circle gold">⭐</div>
-                <span class="num" id="pointsDisplay">0</span>
-                <span class="label">Points</span>
             </div>
         </div>
         <button class="btn-watch" id="watchAdBtn" onclick="watchAd()">▶ Watch Ad & Earn</button>
@@ -371,7 +365,6 @@
                 document.getElementById('profileAvatar').src = userAvatar;
                 
                 document.getElementById('adsWatchedDisplay').innerText = userData.ads_watched||0;
-                document.getElementById('pointsDisplay').innerText = userData.points_balance||0;
                 document.getElementById('totalRefs').innerText = userData.referrals||0;
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 
@@ -393,7 +386,6 @@
                 if(doc.exists) {
                     const d = doc.data();
                     document.getElementById('adsWatchedDisplay').innerText = d.ads_watched||0;
-                    document.getElementById('pointsDisplay').innerText = d.points_balance||0;
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(d.ads_watched||0);
                     loadRankings(); 
