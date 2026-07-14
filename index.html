@@ -126,6 +126,28 @@
         .chat-box textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); padding:12px; border-radius:8px; resize:none; height:80px; margin-bottom:10px; }
         .chat-box button { background:var(--blue); color:#fff; border:none; padding:12px; border-radius:8px; width:100%; font-weight:bold; cursor:pointer; }
 
+        /* GROUP CHAT */
+        #groupChatPage .chat-stream {
+            background: var(--card); border-radius: 16px; padding: 15px;
+            border: 1px solid var(--border); height: 60vh; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;
+        }
+        #groupChatPage .msg-bubble {
+            padding: 10px 14px; border-radius: 16px; max-width: 80%; word-break: break-word;
+            align-self: flex-start; background: var(--bg); border: 1px solid var(--border);
+        }
+        #groupChatPage .msg-bubble.admin {
+            align-self: flex-end; background: var(--gold); color: #0f172a; border: none;
+        }
+        #groupChatPage .msg-bubble .sender {
+            font-size: 11px; font-weight: bold; color: var(--sub); margin-bottom: 3px; display: block;
+        }
+        #groupChatPage .msg-bubble.admin .sender { color: #0f172a; }
+        #groupChatPage .msg-bubble .time { font-size: 10px; color: var(--sub); display: block; margin-top: 4px; text-align: right; }
+        #groupChatPage .input-area { display: flex; gap: 10px; }
+        #groupChatPage .input-area input { flex: 1; margin: 0; padding: 12px; }
+        #groupChatPage .input-area button { padding: 0 20px; width: auto; }
+
         ::-webkit-scrollbar { width:4px; }
         ::-webkit-scrollbar-thumb { background:var(--blue); border-radius:10px; }
     </style>
@@ -235,10 +257,20 @@
             <p class="pid" id="profileId">ID: Loading...</p>
             
             <div class="chat-box">
-                <h4 style="color:var(--sub); margin-bottom:5px;">💬 Contact Admin</h4>
+                <h4 style="color:var(--sub); margin-bottom:5px;">💬 Contact Admin (Private)</h4>
                 <textarea id="adminMessageInput" placeholder="Type your message to Admin..."></textarea>
                 <button onclick="sendMessageToAdmin()">📨 Send Message to Admin</button>
             </div>
+        </div>
+    </div>
+
+    <!-- GROUP CHAT -->
+    <div id="groupChatPage" class="page">
+        <h2 style="color:var(--gold); margin-bottom:15px;">💬 Community Chat</h2>
+        <div class="chat-stream" id="groupChatMessages"></div>
+        <div class="input-area">
+            <input type="text" id="groupChatInput" placeholder="Type a message to the community...">
+            <button class="btn-blue" onclick="sendGroupChatMessage()">Send</button>
         </div>
     </div>
 
@@ -250,6 +282,7 @@
         <div class="nav-item" onclick="switchPage('newsPage', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span>News</span></div>
         <div class="nav-item" onclick="switchPage('withdrawPage', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg><span>With</span></div>
         <div class="nav-item" onclick="switchPage('profilePage', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Me</span></div>
+        <div class="nav-item" onclick="switchPage('groupChatPage', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg><span>Chat</span></div>
     </div>
 
     <script>
@@ -269,7 +302,7 @@
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        // ==================== READ REFERRAL CODE FROM URL ====================
+        // ==================== READ REFERRAL CODE ====================
         const urlParams = new URLSearchParams(window.location.search);
         const referralCodeFromUrl = urlParams.get('start');
 
@@ -298,14 +331,12 @@
         // ==================== INIT USER ====================
         async function initUser() {
             try {
-                // 1. Check if the user exists
                 const q = await db.collection("users").where("telegram_id", "==", telegramId).get();
                 let userData;
                 let isNewUser = false;
 
                 if (q.empty) {
                     isNewUser = true;
-                    // Generate a unique referral code for this new user
                     myReferralCode = "ARENA"+Math.floor(10000+Math.random()*90000);
                     
                     const newUser = {
@@ -317,7 +348,7 @@
                         referrals: 0, 
                         ref_earnings: 0,
                         referral_code: myReferralCode,
-                        referred_by: null // Who invited this user?
+                        referred_by: null
                     };
                     const doc = await db.collection("users").add(newUser);
                     currentUserId = doc.id; 
@@ -330,33 +361,21 @@
                     myReferralCode = userData.referral_code;
                 }
 
-                // ==================== THE REFERRAL LOGIC ====================
-                // 2. If this is a NEW user AND they came through a referral link
+                // REFERRAL LOGIC
                 if (isNewUser && referralCodeFromUrl) {
-                    console.log("New user joined via referral code:", referralCodeFromUrl);
-                    
-                    // Find the inviter (the person who owns the referral code)
                     const inviterQuery = await db.collection("users").where("referral_code", "==", referralCodeFromUrl).get();
-                    
                     if (!inviterQuery.empty) {
-                        const inviterDoc = inviterQuery.docs[0];
-                        const inviterId = inviterDoc.id;
-                        
-                        // 3. Update the inviter's stats in the database
+                        const inviterId = inviterQuery.docs[0].id;
                         await db.collection("users").doc(inviterId).update({
                             referrals: firebase.firestore.FieldValue.increment(1)
                         });
-                        
-                        // 4. Save the inviter's ID to the new user's record so they show up in the inviter's list
                         await currentUserRef.update({
-                            referred_by: inviterId // Store the inviter's Document ID
+                            referred_by: inviterId
                         });
-                        
-                        console.log("Referral counted successfully!");
                     }
                 }
 
-                // ==================== UPDATE UI ====================
+                // UPDATE UI
                 document.getElementById('userName').innerText = userName;
                 document.getElementById('userIdDisplay').innerText = `ID: ${telegramId}`;
                 document.getElementById('profileName').innerText = userName;
@@ -370,11 +389,11 @@
                 
                 calculateUSD(userData.ads_watched||0);
 
-                // Start real-time listeners
                 listenForUpdates(); 
                 loadRankings(); 
                 loadNews(); 
                 loadReferrals();
+                loadGroupChat();
 
             } catch(e) { console.error("Error initializing user:", e); }
         }
@@ -402,6 +421,7 @@
             el.classList.add('active');
             if(id==='rankingPage') loadRankings();
             if(id==='referralPage') loadReferrals();
+            if(id==='groupChatPage') loadGroupChat();
         }
 
         // ==================== WATCH AD ====================
@@ -410,7 +430,6 @@
             btn.disabled = true; 
             btn.innerText = "Loading Ad...";
             
-            // Trigger Monetag SDK
             if (typeof show_11083093 !== 'undefined') {
                 show_11083093();
             } else {
@@ -420,7 +439,6 @@
                 return;
             }
             
-            // Simulate reward after 3 seconds
             setTimeout(() => {
                 currentUserRef.update({
                     points_balance: firebase.firestore.FieldValue.increment(10),
@@ -465,7 +483,6 @@
         
         async function loadReferrals() {
             try {
-                // We look for users where the 'referred_by' field matches the CURRENT user's Document ID
                 const snap = await db.collection("users").where("referred_by", "==", currentUserId).get();
                 let html = '';
                 if(snap.empty) {
@@ -534,7 +551,7 @@
             });
         }
 
-        // ==================== PROFILE CHAT ====================
+        // ==================== PRIVATE ADMIN MESSAGE ====================
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
@@ -554,6 +571,64 @@
             document.body.classList.toggle('light-theme');
             const btn = document.querySelector('.theme-btn');
             btn.innerText = document.body.classList.contains('light-theme') ? '🌙 Dark' : '☀️ Light';
+        }
+
+        // ==================== GROUP CHAT ====================
+        const badWords = ["badword1", "badword2", "fuck", "shit", "bitch", "ass", "damn", "hell"];
+
+        function filterMessage(text) {
+            let words = text.split(" ");
+            let filtered = words.map(word => {
+                if (badWords.includes(word.toLowerCase())) {
+                    return "****";
+                }
+                return word;
+            });
+            return filtered.join(" ");
+        }
+
+        function sendGroupChatMessage() {
+            const input = document.getElementById('groupChatInput');
+            let msg = input.value.trim();
+            if (!msg) return;
+            
+            // Filter bad words
+            msg = filterMessage(msg);
+
+            db.collection("groupchat").add({
+                user_id: telegramId,
+                username: userName,
+                message: msg,
+                is_admin: false,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                input.value = '';
+            }).catch((e) => {
+                console.error("Error sending group chat:", e);
+            });
+        }
+
+        function loadGroupChat() {
+            db.collection("groupchat").orderBy("timestamp", "asc").onSnapshot((snap) => {
+                const container = document.getElementById('groupChatMessages');
+                let html = '';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const isAdmin = data.is_admin === true;
+                    const name = data.username || "Unknown";
+                    const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString() : "";
+                    
+                    html += `
+                        <div class="msg-bubble ${isAdmin ? 'admin' : ''}">
+                            <span class="sender">${isAdmin ? '👑 Admin' : name}</span>
+                            ${data.message}
+                            <span class="time">${time}</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html || '<div style="text-align:center; color:var(--sub); padding:20px;">No messages yet. Start the conversation!</div>';
+                container.scrollTop = container.scrollHeight;
+            });
         }
 
         // ==================== START ====================
