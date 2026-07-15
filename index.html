@@ -555,14 +555,18 @@
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
-            db.collection("messages").add({
+            db.collection("admin_inbox").add({  // <-- CHANGED TO 'admin_inbox' for guaranteed delivery
                 telegram_id: telegramId, 
                 username: userName, 
                 message: m, 
-                from_admin: false
+                from_admin: false,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 tg.showAlert("Sent to Admin!");
                 document.getElementById('adminMessageInput').value = '';
+            }).catch((e) => {
+                console.error("Error sending private message:", e);
+                tg.showAlert("Error sending message. Please try again.");
             });
         }
 
@@ -592,7 +596,6 @@
             let msg = input.value.trim();
             if (!msg) return;
             
-            // Filter bad words
             msg = filterMessage(msg);
 
             db.collection("groupchat").add({
