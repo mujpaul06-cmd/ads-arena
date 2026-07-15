@@ -249,7 +249,7 @@
         </div>
     </div>
 
-    <!-- PROFILE / CHAT -->
+    <!-- PROFILE / PRIVATE CHAT -->
     <div id="profilePage" class="page">
         <div class="profile-page">
             <img id="profileAvatar" class="avatar" src="" alt="Avatar">
@@ -257,7 +257,8 @@
             <p class="pid" id="profileId">ID: Loading...</p>
             
             <div class="chat-box">
-                <h4 style="color:var(--sub); margin-bottom:5px;">💬 Contact Admin (Private)</h4>
+                <h4 style="color:var(--sub); margin-bottom:5px;">💬 Private Chat with Admin</h4>
+                <div id="privateChatMessages" style="height:150px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px;"></div>
                 <textarea id="adminMessageInput" placeholder="Type your message to Admin..."></textarea>
                 <button onclick="sendMessageToAdmin()">📨 Send Message to Admin</button>
             </div>
@@ -389,11 +390,13 @@
                 
                 calculateUSD(userData.ads_watched||0);
 
+                // Start Real-time Listeners
                 listenForUpdates(); 
                 loadRankings(); 
                 loadNews(); 
                 loadReferrals();
                 loadGroupChat();
+                loadPrivateChat();  // <-- NEW: Listen to Private Chat replies
 
             } catch(e) { console.error("Error initializing user:", e); }
         }
@@ -551,23 +554,51 @@
             });
         }
 
-        // ==================== PRIVATE ADMIN MESSAGE ====================
+        // ==================== PRIVATE CHAT WITH ADMIN ====================
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
-            db.collection("admin_inbox").add({  // <-- CHANGED TO 'admin_inbox' for guaranteed delivery
+            
+            db.collection("admin_inbox").add({ 
                 telegram_id: telegramId, 
                 username: userName, 
                 message: m, 
                 from_admin: false,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
-                tg.showAlert("Sent to Admin!");
+                tg.showAlert("Message sent to Admin!");
                 document.getElementById('adminMessageInput').value = '';
             }).catch((e) => {
                 console.error("Error sending private message:", e);
                 tg.showAlert("Error sending message. Please try again.");
             });
+        }
+
+        function loadPrivateChat() {
+            db.collection("admin_inbox")
+                .where("telegram_id", "==", telegramId)
+                .orderBy("timestamp", "asc")
+                .onSnapshot((snap) => {
+                    const container = document.getElementById('privateChatMessages');
+                    let html = '';
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        const isAdmin = data.from_admin === true;
+                        const align = isAdmin ? 'flex-end' : 'flex-start';
+                        const bg = isAdmin ? '#fbbf24' : '#334155';
+                        const color = isAdmin ? '#000' : '#fff';
+                        const sender = isAdmin ? '👑 Admin' : 'You';
+                        
+                        html += `
+                            <div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:80%; margin-bottom:5px; word-break:break-all;">
+                                <small style="font-size:10px; font-weight:bold; display:block; margin-bottom:2px;">${sender}</small>
+                                ${data.message}
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html || '<div style="color:var(--sub); text-align:center;">No messages yet.</div>';
+                    container.scrollTop = container.scrollHeight;
+                });
         }
 
         // ==================== THEME ====================
