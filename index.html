@@ -5,32 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ads Arena</title>
     
-    <!-- Monetag SDK -->
     <script src='//libtl.com/sdk.js' data-zone='11083093' data-sdk='show_11083093'></script>
-    
-    <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
-        :root {
-            --bg: #060b18; --card: #0b1529; --border: #1e293b; --text: #ffffff; --sub: #94a3b8;
-            --gold: #fbbf24; --green: #22c55e; --blue: #3b82f6; --red: #ef4444;
-        }
-        .light-theme {
-            --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --sub: #64748b;
-        }
+        :root { --bg: #060b18; --card: #0b1529; --border: #1e293b; --text: #ffffff; --sub: #94a3b8; --gold: #fbbf24; --green: #22c55e; --blue: #3b82f6; --red: #ef4444; }
+        .light-theme { --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --sub: #64748b; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
         body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; overflow-x: hidden; }
 
-        /* INTRO */
         #introScreen {
-            position: fixed; top:0; left:0; width:100vw; height:100vh;
-            background: #060b18; display:flex; flex-direction:column; justify-content:center; align-items:center;
-            z-index:9999; transition: opacity 0.8s ease;
+            position: fixed; top:0; left:0; width:100vw; height:100vh; background:#060b18;
+            display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;
+            transition: opacity 0.8s ease;
         }
         #introScreen.hidden { opacity:0; pointer-events:none; }
         .intro-logo { font-size:52px; font-weight:900; color:#fff; letter-spacing:-2px; text-align:center; line-height:1; }
@@ -38,30 +27,26 @@
         .intro-sub { color:#94a3b8; font-size:14px; letter-spacing:4px; margin-top:10px; }
         .intro-credit { color:#64748b; font-size:12px; margin-top:15px; font-weight:400; }
         .intro-timer {
-            margin-top:40px; width:60px; height:60px; border-radius:50%;
-            border:3px solid #3b82f6; display:flex; justify-content:center; align-items:center;
-            font-size:24px; font-weight:bold; color:#fff; animation:pulse 1s infinite;
+            margin-top:40px; width:60px; height:60px; border-radius:50%; border:3px solid #3b82f6;
+            display:flex; justify-content:center; align-items:center; font-size:24px; font-weight:bold; color:#fff; animation:pulse 1s infinite;
         }
         @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(59,130,246,0.4); } 100% { box-shadow:0 0 0 15px rgba(59,130,246,0); } }
 
-        /* HEADER */
         .header { background:var(--bg); padding:15px 20px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
         .header h1 { font-size:18px; font-weight:700; text-align:center; width:100%; }
         .header .theme-btn { background:transparent; border:1px solid var(--border); color:var(--sub); padding:5px 12px; border-radius:20px; font-size:12px; cursor:pointer; position:absolute; right:20px; }
 
-        /* PAGES */
         .page { display:none; padding:15px 20px; animation:fadeIn 0.4s ease; }
         .page.active { display:block; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
-        /* HOME */
         .profile-card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:20px; margin-bottom:20px; display:flex; align-items:center; gap:15px; }
         .profile-card img { width:64px; height:64px; border-radius:50%; border:2px solid var(--blue); object-fit:cover; }
         .profile-card .info { flex:1; }
         .profile-card .info h2 { font-size:18px; font-weight:700; }
         .profile-card .info p { color:var(--sub); font-size:13px; margin-top:2px; }
 
-        .stats-grid { display:grid; grid-template-columns:1fr; gap:15px; margin-bottom:20px; max-width: 300px; margin-left: auto; margin-right: auto; }
+        .stats-grid { display:grid; grid-template-columns:1fr; gap:15px; margin-bottom:20px; max-width:300px; margin:0 auto; }
         .stat-box { background:var(--card); border-radius:16px; padding:20px; text-align:center; border:1px solid var(--border); }
         .stat-box .icon-circle { width:40px; height:40px; border-radius:50%; display:flex; justify-content:center; align-items:center; margin:0 auto 10px; font-size:18px; }
         .stat-box .icon-circle.blue { background:rgba(59,130,246,0.2); color:var(--blue); }
@@ -78,36 +63,32 @@
         .rank-card .left .rnum span { color:var(--green); font-size:14px; font-weight:400; display:block; margin-top:2px; }
         .rank-card .right { font-size:40px; }
 
-        /* NAV */
         .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--bg); border-top:1px solid var(--border); display:flex; justify-content:space-around; padding:8px 0 15px; z-index:1000; }
         .nav-item { text-align:center; color:#475569; cursor:pointer; transition:0.2s; width:20%; }
         .nav-item.active { color:var(--text); }
         .nav-item svg { width:22px; height:22px; display:block; margin:0 auto 4px; }
         .nav-item span { font-size:10px; font-weight:500; }
 
-        /* RANKING */
         .rank-item { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--card); margin-bottom:8px; border-radius:12px; border:1px solid var(--border); }
         .rank-item .pos { color:var(--sub); width:30px; font-weight:600; font-size:14px; }
         .rank-item .name { flex:1; font-weight:500; font-size:15px; }
         .rank-item .rpts { color:var(--gold); font-weight:700; font-size:15px; }
         .rank-item.me { border-color:var(--blue); background:rgba(59,130,246,0.05); }
 
-        /* REFERRALS */
         .ref-box { background:var(--card); padding:20px; border-radius:16px; border:1px solid var(--border); text-align:center; }
         .ref-box h3 { font-size:16px; margin-bottom:5px; }
         .ref-box p { color:var(--sub); font-size:13px; margin-bottom:15px; }
         .ref-input { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); padding:12px; border-radius:8px; margin-bottom:12px; font-size:13px; text-align:center; }
         .btn-blue { background:var(--blue); color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; width:100%; }
+
         .ref-list { background:var(--card); padding:15px; border-radius:12px; border:1px solid var(--border); margin-top:15px; }
         .ref-item { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
         .ref-bonus { text-align:center; color:var(--green); font-size:14px; margin:15px; font-weight:bold; }
 
-        /* NEWS */
         .news-card { background:var(--card); padding:16px; border-radius:12px; border:1px solid var(--border); margin-bottom:12px; }
         .news-card h4 { color:var(--gold); font-size:14px; margin-bottom:4px; }
         .news-card p { font-size:14px; color:var(--text); line-height:1.5; }
 
-        /* WITHDRAW */
         .withdraw-box { background:var(--card); padding:20px; border-radius:16px; border:1px solid var(--border); }
         .withdraw-box h3 { text-align:center; margin-bottom:15px; }
         .withdraw-balance { text-align:center; margin-bottom:20px; }
@@ -117,7 +98,6 @@
         .btn-withdraw.active { background:var(--green); color:#fff; }
         .btn-withdraw.disabled { background:#334155; color:var(--sub); cursor:not-allowed; }
 
-        /* PROFILE */
         .profile-page { text-align:center; padding-top:10px; }
         .profile-page .avatar { width:100px; height:100px; border-radius:50%; border:3px solid var(--blue); object-fit:cover; margin-bottom:10px; }
         .profile-page h2 { font-size:22px; }
@@ -126,27 +106,21 @@
         .chat-box textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); padding:12px; border-radius:8px; resize:none; height:80px; margin-bottom:10px; }
         .chat-box button { background:var(--blue); color:#fff; border:none; padding:12px; border-radius:8px; width:100%; font-weight:bold; cursor:pointer; }
 
-        /* GROUP CHAT */
         #groupChatPage .chat-stream {
-            background: var(--card); border-radius: 16px; padding: 15px;
-            border: 1px solid var(--border); height: 60vh; overflow-y: auto;
-            display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;
+            background: var(--card); border-radius:16px; padding:15px; border:1px solid var(--border); height:60vh; overflow-y:auto;
+            display:flex; flex-direction:column; gap:10px; margin-bottom:10px;
         }
         #groupChatPage .msg-bubble {
-            padding: 10px 14px; border-radius: 16px; max-width: 80%; word-break: break-word;
-            align-self: flex-start; background: var(--bg); border: 1px solid var(--border);
+            padding:10px 14px; border-radius:16px; max-width:80%; word-break:break-word; align-self:flex-start;
+            background:var(--bg); border:1px solid var(--border);
         }
-        #groupChatPage .msg-bubble.admin {
-            align-self: flex-end; background: var(--gold); color: #0f172a; border: none;
-        }
-        #groupChatPage .msg-bubble .sender {
-            font-size: 11px; font-weight: bold; color: var(--sub); margin-bottom: 3px; display: block;
-        }
-        #groupChatPage .msg-bubble.admin .sender { color: #0f172a; }
-        #groupChatPage .msg-bubble .time { font-size: 10px; color: var(--sub); display: block; margin-top: 4px; text-align: right; }
-        #groupChatPage .input-area { display: flex; gap: 10px; }
-        #groupChatPage .input-area input { flex: 1; margin: 0; padding: 12px; }
-        #groupChatPage .input-area button { padding: 0 20px; width: auto; }
+        #groupChatPage .msg-bubble.admin { align-self:flex-end; background:var(--gold); color:#0f172a; border:none; }
+        #groupChatPage .msg-bubble .sender { font-size:11px; font-weight:bold; color:var(--sub); margin-bottom:3px; display:block; }
+        #groupChatPage .msg-bubble.admin .sender { color:#0f172a; }
+        #groupChatPage .msg-bubble .time { font-size:10px; color:var(--sub); display:block; margin-top:4px; text-align:right; }
+        #groupChatPage .input-area { display:flex; gap:10px; }
+        #groupChatPage .input-area input { flex:1; margin:0; padding:12px; }
+        #groupChatPage .input-area button { padding:0 20px; width:auto; }
 
         ::-webkit-scrollbar { width:4px; }
         ::-webkit-scrollbar-thumb { background:var(--blue); border-radius:10px; }
@@ -204,7 +178,7 @@
         </div>
     </div>
 
-    <!-- REFERRALS -->
+    <!-- REFERRALS (With User List) -->
     <div id="referralPage" class="page">
         <div class="ref-box">
             <div style="font-size:40px; margin-bottom:10px;">👥</div>
@@ -220,8 +194,9 @@
             </div>
         </div>
         
+        <!-- THIS IS THE REFERRALS LIST THE USER SEES -->
         <div class="ref-list">
-            <h4 style="color:var(--sub); margin-bottom:10px;">Referrals List</h4>
+            <h4 style="color:var(--sub); margin-bottom:10px;">Your Referrals List</h4>
             <div id="refListContainer"><p style="color:var(--sub); text-align:center;">No referrals yet.</p></div>
         </div>
         <div class="ref-bonus">If you have 100 referrals, you get $1!</div>
@@ -249,7 +224,7 @@
         </div>
     </div>
 
-    <!-- PROFILE / PRIVATE CHAT (FIXED INBOX) -->
+    <!-- PROFILE / PRIVATE CHAT -->
     <div id="profilePage" class="page">
         <div class="profile-page">
             <img id="profileAvatar" class="avatar" src="" alt="Avatar">
@@ -258,12 +233,7 @@
             
             <div class="chat-box">
                 <h4 style="color:var(--sub); margin-bottom:5px;">💬 Private Chat with Admin</h4>
-                
-                <!-- THIS IS THE INBOX VIEWER FOR ADMIN REPLIES -->
-                <div id="privateChatMessages" style="height:150px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px;">
-                    <div style="color:var(--sub); text-align:center;">Loading messages...</div>
-                </div>
-
+                <div id="privateChatMessages" style="height:150px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px;"></div>
                 <textarea id="adminMessageInput" placeholder="Type your message to Admin..."></textarea>
                 <button onclick="sendMessageToAdmin()">📨 Send Message to Admin</button>
             </div>
@@ -292,7 +262,6 @@
     </div>
 
     <script>
-        // ==================== FIREBASE ====================
         const firebaseConfig = {
             apiKey: "AIzaSyAIvkzIWM-0giOeJjoiYHv6Sgkb9VC70GE",
             authDomain: "ads-arena-850c5.firebaseapp.com",
@@ -304,109 +273,72 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // ==================== TELEGRAM ====================
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        // ==================== READ REFERRAL CODE ====================
         const urlParams = new URLSearchParams(window.location.search);
         const referralCodeFromUrl = urlParams.get('start');
 
-        // ==================== GET USER DATA ====================
         const tgUser = tg.initDataUnsafe?.user || { id: "demo_"+Date.now(), first_name: "Player" };
         const telegramId = String(tgUser.id);
         const userName = tgUser.first_name || "Player";
         const userAvatar = tgUser.photo_url || `https://ui-avatars.com/api/?name=${userName}&background=3b82f6&color=fff&rounded=true`;
 
-        let currentUserId = null, currentUserRef = null;
-        let myReferralCode = null;
+        let currentUserId = null, currentUserRef = null, myReferralCode = null;
 
-        // ==================== INTRO TIMER ====================
         let countdown = 3;
         const timerDisplay = document.getElementById('timerDisplay');
         const timerInterval = setInterval(() => {
             countdown--;
-            if (countdown >= 1) {
-                timerDisplay.innerText = countdown;
-            } else {
-                clearInterval(timerInterval);
-                document.getElementById('introScreen').classList.add('hidden');
-            }
+            if (countdown >= 1) { timerDisplay.innerText = countdown; }
+            else { clearInterval(timerInterval); document.getElementById('introScreen').classList.add('hidden'); }
         }, 1000);
 
-        // ==================== INIT USER ====================
         async function initUser() {
             try {
                 const q = await db.collection("users").where("telegram_id", "==", telegramId).get();
-                let userData;
-                let isNewUser = false;
+                let userData, isNewUser = false;
 
                 if (q.empty) {
                     isNewUser = true;
                     myReferralCode = "ARENA"+Math.floor(10000+Math.random()*90000);
-                    
                     const newUser = {
-                        telegram_id: telegramId, 
-                        first_name: userName, 
-                        avatar_url: userAvatar,
-                        points_balance: 0, 
-                        ads_watched: 0, 
-                        referrals: 0, 
-                        ref_earnings: 0,
-                        referral_code: myReferralCode,
-                        referred_by: null
+                        telegram_id: telegramId, first_name: userName, avatar_url: userAvatar,
+                        points_balance: 0, ads_watched: 0, referrals: 0, ref_earnings: 0,
+                        referral_code: myReferralCode, referred_by: null
                     };
                     const doc = await db.collection("users").add(newUser);
-                    currentUserId = doc.id; 
-                    currentUserRef = doc; 
-                    userData = newUser;
+                    currentUserId = doc.id; currentUserRef = doc; userData = newUser;
                 } else {
-                    currentUserId = q.docs[0].id; 
-                    currentUserRef = db.collection("users").doc(currentUserId);
-                    userData = q.docs[0].data();
-                    myReferralCode = userData.referral_code;
+                    currentUserId = q.docs[0].id; currentUserRef = db.collection("users").doc(currentUserId);
+                    userData = q.docs[0].data(); myReferralCode = userData.referral_code;
                 }
 
-                // REFERRAL LOGIC
+                // Referral Logic
                 if (isNewUser && referralCodeFromUrl) {
                     const inviterQuery = await db.collection("users").where("referral_code", "==", referralCodeFromUrl).get();
                     if (!inviterQuery.empty) {
                         const inviterId = inviterQuery.docs[0].id;
-                        await db.collection("users").doc(inviterId).update({
-                            referrals: firebase.firestore.FieldValue.increment(1)
-                        });
-                        await currentUserRef.update({
-                            referred_by: inviterId
-                        });
+                        await db.collection("users").doc(inviterId).update({ referrals: firebase.firestore.FieldValue.increment(1) });
+                        await currentUserRef.update({ referred_by: inviterId });
                     }
                 }
 
-                // UPDATE UI
                 document.getElementById('userName').innerText = userName;
                 document.getElementById('userIdDisplay').innerText = `ID: ${telegramId}`;
                 document.getElementById('profileName').innerText = userName;
                 document.getElementById('profileId').innerText = `ID: ${telegramId}`;
                 document.getElementById('userAvatar').src = userAvatar;
                 document.getElementById('profileAvatar').src = userAvatar;
-                
                 document.getElementById('adsWatchedDisplay').innerText = userData.ads_watched||0;
                 document.getElementById('totalRefs').innerText = userData.referrals||0;
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
-                
                 calculateUSD(userData.ads_watched||0);
 
-                // Start Real-time Listeners
-                listenForUpdates(); 
-                loadRankings(); 
-                loadNews(); 
-                loadReferrals();
-                loadGroupChat();
-                loadPrivateChat();  // <-- THIS LISTENS FOR ADMIN REPLIES
-
+                listenForUpdates(); loadRankings(); loadNews(); loadReferrals(); loadGroupChat(); loadPrivateChat();
             } catch(e) { console.error("Error initializing user:", e); }
         }
 
-        // ==================== REAL-TIME LISTENER ====================
         function listenForUpdates() {
             if(!currentUserRef) return;
             currentUserRef.onSnapshot(doc => {
@@ -415,13 +347,11 @@
                     document.getElementById('adsWatchedDisplay').innerText = d.ads_watched||0;
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(d.ads_watched||0);
-                    loadRankings(); 
-                    loadReferrals();
+                    loadRankings(); loadReferrals();
                 }
             });
         }
 
-        // ==================== NAVIGATION ====================
         function switchPage(id, el) {
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -432,33 +362,22 @@
             if(id==='groupChatPage') loadGroupChat();
         }
 
-        // ==================== WATCH AD ====================
         function watchAd() {
             const btn = document.getElementById('watchAdBtn');
-            btn.disabled = true; 
-            btn.innerText = "Loading Ad...";
-            
-            if (typeof show_11083093 !== 'undefined') {
-                show_11083093();
-            } else {
+            btn.disabled = true; btn.innerText = "Loading Ad...";
+            if (typeof show_11083093 !== 'undefined') { show_11083093(); }
+            else {
                 tg.showAlert("Ad network loading. Please try again.");
-                btn.disabled = false; 
-                btn.innerText = "▶ Watch Ad & Earn";
-                return;
+                btn.disabled = false; btn.innerText = "▶ Watch Ad & Earn"; return;
             }
-            
             setTimeout(() => {
                 currentUserRef.update({
                     points_balance: firebase.firestore.FieldValue.increment(10),
                     ads_watched: firebase.firestore.FieldValue.increment(1)
-                }).then(() => {
-                    btn.disabled = false; 
-                    btn.innerText = "▶ Watch Ad & Earn";
-                });
+                }).then(() => { btn.disabled = false; btn.innerText = "▶ Watch Ad & Earn"; });
             }, 3000);
         }
 
-        // ==================== RANKINGS ====================
         async function loadRankings() {
             const snap = await db.collection("users").orderBy("ads_watched", "desc").limit(50).get();
             let html = '', rank = 1;
@@ -472,30 +391,24 @@
             document.getElementById('rankListContainer').innerHTML = html || '<div style="text-align:center; color:var(--sub);">No players yet.</div>';
         }
 
-        // ==================== REFERRALS ====================
         function copyReferralLink() {
-            const i = document.getElementById('refLinkInput');
-            i.select(); 
-            navigator.clipboard.writeText(i.value);
+            const i = document.getElementById('refLinkInput'); i.select(); navigator.clipboard.writeText(i.value);
             tg.showAlert("Link copied!");
         }
-        
+
         function shareReferral() {
             const link = document.getElementById('refLinkInput').value;
             if (navigator.share) {
                 navigator.share({ title: 'Ads Arena', text: 'Join me on Ads Arena and earn points!', url: link });
-            } else { 
-                copyReferralLink(); 
-            }
+            } else { copyReferralLink(); }
         }
-        
+
         async function loadReferrals() {
             try {
                 const snap = await db.collection("users").where("referred_by", "==", currentUserId).get();
                 let html = '';
-                if(snap.empty) {
-                    html = '<p style="color:var(--sub); text-align:center;">No referrals yet.</p>';
-                } else {
+                if(snap.empty) { html = '<p style="color:var(--sub); text-align:center;">No referrals yet.</p>'; }
+                else {
                     snap.forEach(doc => {
                         const d = doc.data();
                         html += `<div class="ref-item"><span>👤 ${d.first_name||'User'}</span><span style="color:var(--sub);">${d.telegram_id}</span></div>`;
@@ -505,7 +418,6 @@
             } catch (e) { console.log("Referral load error:", e); }
         }
 
-        // ==================== NEWS ====================
         function loadNews() {
             db.collection("announcements").orderBy("timestamp", "desc").onSnapshot(snap => {
                 let html = '';
@@ -517,27 +429,18 @@
             });
         }
 
-        // ==================== WITHDRAW ====================
         function calculateUSD(ads) {
             const usd = (ads / 10000) * 5;
             document.getElementById('usdBalance').innerText = `$${usd.toFixed(2)}`;
-            const btn = document.getElementById('withdrawBtn');
-            const input = document.getElementById('withdrawAmount');
+            const btn = document.getElementById('withdrawBtn'), input = document.getElementById('withdrawAmount');
             input.addEventListener('input', () => {
                 const val = parseFloat(input.value);
-                if(val >= 5 && val <= usd) {
-                    btn.className = 'btn-withdraw active'; 
-                    btn.innerText = '💸 Withdraw Now';
-                } else if (val < 5 && val > 0) {
-                    btn.className = 'btn-withdraw disabled'; 
-                    btn.innerText = '⚠️ Min $5.00';
-                } else {
-                    btn.className = 'btn-withdraw disabled'; 
-                    btn.innerText = 'Withdraw Now';
-                }
+                if(val >= 5 && val <= usd) { btn.className = 'btn-withdraw active'; btn.innerText = '💸 Withdraw Now'; }
+                else if (val < 5 && val > 0) { btn.className = 'btn-withdraw disabled'; btn.innerText = '⚠️ Min $5.00'; }
+                else { btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now'; }
             });
         }
-        
+
         function submitWithdraw() {
             const btn = document.getElementById('withdrawBtn');
             if(btn.className.includes('disabled')) return tg.showAlert("Minimum is $5.00.");
@@ -545,109 +448,65 @@
             const a = parseFloat(document.getElementById('withdrawAmount').value);
             if(!w) return tg.showAlert("Enter a wallet address.");
             db.collection("withdrawals").add({
-                user_id: telegramId, 
-                user_name: userName, 
-                wallet: w, 
-                amount: a, 
-                status: "pending"
+                user_id: telegramId, user_name: userName, wallet: w, amount: a, status: "pending"
             }).then(() => {
                 tg.showAlert("Withdrawal sent to Admin!");
-                document.getElementById('walletAddress').value = '';
-                document.getElementById('withdrawAmount').value = '';
-                btn.className = 'btn-withdraw disabled'; 
-                btn.innerText = 'Withdraw Now';
+                document.getElementById('walletAddress').value = ''; document.getElementById('withdrawAmount').value = '';
+                btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now';
             });
         }
 
-        // ==================== PRIVATE CHAT WITH ADMIN (FIXED LISTENER) ====================
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
-            
-            db.collection("admin_inbox").add({ 
-                telegram_id: telegramId, 
-                username: userName, 
-                message: m, 
-                from_admin: false,
+            db.collection("admin_inbox").add({
+                telegram_id: telegramId, username: userName, message: m, from_admin: false,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 tg.showAlert("Message sent to Admin!");
-                document.getElementById('adminMessageInput').value = '';
-                // Immediately trigger the inbox reload to show the user's message
-                loadPrivateChat();
-            }).catch((e) => {
-                console.error("Error sending private message:", e);
-                tg.showAlert("Error sending message. Please try again.");
+                document.getElementById('adminMessageInput').value = ''; loadPrivateChat();
+            }).catch((e) => { console.error("Error sending private message:", e); tg.showAlert("Error sending message. Please try again."); });
+        }
+
+        function loadPrivateChat() {
+            db.collection("admin_inbox").where("telegram_id", "==", telegramId).orderBy("timestamp", "asc").onSnapshot((snap) => {
+                const container = document.getElementById('privateChatMessages');
+                let html = '';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const isAdmin = data.from_admin === true;
+                    const align = isAdmin ? 'flex-end' : 'flex-start';
+                    const bg = isAdmin ? '#fbbf24' : '#334155';
+                    const color = isAdmin ? '#000' : '#fff';
+                    const sender = isAdmin ? '👑 Admin' : 'You';
+                    html += `<div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:80%; margin-bottom:5px; word-break:break-all;"><small style="font-size:10px; font-weight:bold; display:block; margin-bottom:2px;">${sender}</small>${data.message}</div>`;
+                });
+                container.innerHTML = html || '<div style="color:var(--sub); text-align:center;">No messages yet.</div>';
+                container.scrollTop = container.scrollHeight;
             });
         }
 
-        // THIS FUNCTION RUNS THE INBOX AND LISTENS FOR THE ADMIN'S REPLY
-        function loadPrivateChat() {
-            db.collection("admin_inbox")
-                .where("telegram_id", "==", telegramId)  // Filters ONLY messages for THIS user
-                .orderBy("timestamp", "asc")
-                .onSnapshot((snap) => {
-                    const container = document.getElementById('privateChatMessages');
-                    let html = '';
-                    snap.forEach(doc => {
-                        const data = doc.data();
-                        const isAdmin = data.from_admin === true;
-                        const align = isAdmin ? 'flex-end' : 'flex-start';
-                        const bg = isAdmin ? '#fbbf24' : '#334155';
-                        const color = isAdmin ? '#000' : '#fff';
-                        const sender = isAdmin ? '👑 Admin' : 'You';
-                        
-                        html += `
-                            <div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:80%; margin-bottom:5px; word-break:break-all;">
-                                <small style="font-size:10px; font-weight:bold; display:block; margin-bottom:2px;">${sender}</small>
-                                ${data.message}
-                            </div>
-                        `;
-                    });
-                    container.innerHTML = html || '<div style="color:var(--sub); text-align:center;">No messages yet.</div>';
-                    container.scrollTop = container.scrollHeight;
-                });
-        }
-
-        // ==================== THEME ====================
         function toggleTheme() {
             document.body.classList.toggle('light-theme');
             const btn = document.querySelector('.theme-btn');
             btn.innerText = document.body.classList.contains('light-theme') ? '🌙 Dark' : '☀️ Light';
         }
 
-        // ==================== GROUP CHAT ====================
         const badWords = ["badword1", "badword2", "fuck", "shit", "bitch", "ass", "damn", "hell"];
-
         function filterMessage(text) {
             let words = text.split(" ");
-            let filtered = words.map(word => {
-                if (badWords.includes(word.toLowerCase())) {
-                    return "****";
-                }
-                return word;
-            });
+            let filtered = words.map(word => { if (badWords.includes(word.toLowerCase())) return "****"; return word; });
             return filtered.join(" ");
         }
 
         function sendGroupChatMessage() {
             const input = document.getElementById('groupChatInput');
-            let msg = input.value.trim();
-            if (!msg) return;
-            
+            let msg = input.value.trim(); if (!msg) return;
             msg = filterMessage(msg);
-
             db.collection("groupchat").add({
-                user_id: telegramId,
-                username: userName,
-                message: msg,
-                is_admin: false,
+                user_id: telegramId, username: userName, message: msg, is_admin: false,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                input.value = '';
-            }).catch((e) => {
-                console.error("Error sending group chat:", e);
-            });
+            }).then(() => { input.value = ''; }).catch((e) => { console.error("Error sending group chat:", e); });
         }
 
         function loadGroupChat() {
@@ -659,21 +518,13 @@
                     const isAdmin = data.is_admin === true;
                     const name = data.username || "Unknown";
                     const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString() : "";
-                    
-                    html += `
-                        <div class="msg-bubble ${isAdmin ? 'admin' : ''}">
-                            <span class="sender">${isAdmin ? '👑 Admin' : name}</span>
-                            ${data.message}
-                            <span class="time">${time}</span>
-                        </div>
-                    `;
+                    html += `<div class="msg-bubble ${isAdmin ? 'admin' : ''}"><span class="sender">${isAdmin ? '👑 Admin' : name}</span>${data.message}<span class="time">${time}</span></div>`;
                 });
                 container.innerHTML = html || '<div style="text-align:center; color:var(--sub); padding:20px;">No messages yet. Start the conversation!</div>';
                 container.scrollTop = container.scrollHeight;
             });
         }
 
-        // ==================== START ====================
         initUser();
     </script>
 </body>
