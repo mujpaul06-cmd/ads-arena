@@ -249,7 +249,7 @@
         </div>
     </div>
 
-    <!-- PROFILE / PRIVATE CHAT -->
+    <!-- PROFILE / PRIVATE CHAT (FIXED INBOX) -->
     <div id="profilePage" class="page">
         <div class="profile-page">
             <img id="profileAvatar" class="avatar" src="" alt="Avatar">
@@ -258,7 +258,12 @@
             
             <div class="chat-box">
                 <h4 style="color:var(--sub); margin-bottom:5px;">💬 Private Chat with Admin</h4>
-                <div id="privateChatMessages" style="height:150px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px;"></div>
+                
+                <!-- THIS IS THE INBOX VIEWER FOR ADMIN REPLIES -->
+                <div id="privateChatMessages" style="height:150px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px;">
+                    <div style="color:var(--sub); text-align:center;">Loading messages...</div>
+                </div>
+
                 <textarea id="adminMessageInput" placeholder="Type your message to Admin..."></textarea>
                 <button onclick="sendMessageToAdmin()">📨 Send Message to Admin</button>
             </div>
@@ -396,7 +401,7 @@
                 loadNews(); 
                 loadReferrals();
                 loadGroupChat();
-                loadPrivateChat();  // <-- NEW: Listen to Private Chat replies
+                loadPrivateChat();  // <-- THIS LISTENS FOR ADMIN REPLIES
 
             } catch(e) { console.error("Error initializing user:", e); }
         }
@@ -554,7 +559,7 @@
             });
         }
 
-        // ==================== PRIVATE CHAT WITH ADMIN ====================
+        // ==================== PRIVATE CHAT WITH ADMIN (FIXED LISTENER) ====================
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
@@ -568,15 +573,18 @@
             }).then(() => {
                 tg.showAlert("Message sent to Admin!");
                 document.getElementById('adminMessageInput').value = '';
+                // Immediately trigger the inbox reload to show the user's message
+                loadPrivateChat();
             }).catch((e) => {
                 console.error("Error sending private message:", e);
                 tg.showAlert("Error sending message. Please try again.");
             });
         }
 
+        // THIS FUNCTION RUNS THE INBOX AND LISTENS FOR THE ADMIN'S REPLY
         function loadPrivateChat() {
             db.collection("admin_inbox")
-                .where("telegram_id", "==", telegramId)
+                .where("telegram_id", "==", telegramId)  // Filters ONLY messages for THIS user
                 .orderBy("timestamp", "asc")
                 .onSnapshot((snap) => {
                     const container = document.getElementById('privateChatMessages');
