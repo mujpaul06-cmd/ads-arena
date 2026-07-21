@@ -122,8 +122,21 @@
         #groupChatPage .input-area input { flex:1; margin:0; padding:12px; }
         #groupChatPage .input-area button { padding:0 20px; width:auto; }
 
+        /* Withdrawal History */
+        .history-item { background:var(--card); padding:12px 16px; border-radius:10px; border:1px solid var(--border); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:5px; }
+        .history-item .h-amount { font-weight:bold; color:var(--gold); }
+        .history-item .h-status { font-size:12px; padding:2px 10px; border-radius:12px; }
+        .history-item .h-status.pending { background:#92400e; color:#fbbf24; }
+        .history-item .h-status.paid { background:#065f46; color:#34d399; }
+        .history-item .h-status.rejected { background:#7f1d1d; color:#fca5a5; }
+        .history-item .h-date { color:var(--sub); font-size:11px; }
+
         ::-webkit-scrollbar { width:4px; }
         ::-webkit-scrollbar-thumb { background:var(--blue); border-radius:10px; }
+
+        .withdraw-tabs { display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap; }
+        .withdraw-tabs button { background:var(--card); color:var(--sub); border:1px solid var(--border); padding:8px 16px; border-radius:20px; cursor:pointer; transition:0.2s; }
+        .withdraw-tabs button.active { background:var(--blue); color:#fff; border-color:var(--blue); }
     </style>
 </head>
 <body>
@@ -178,7 +191,7 @@
         </div>
     </div>
 
-    <!-- REFERRALS (With User List) -->
+    <!-- REFERRALS -->
     <div id="referralPage" class="page">
         <div class="ref-box">
             <div style="font-size:40px; margin-bottom:10px;">👥</div>
@@ -194,7 +207,6 @@
             </div>
         </div>
         
-        <!-- Referrals List -->
         <div class="ref-list">
             <h4 style="color:var(--sub); margin-bottom:10px;">Your Referrals List</h4>
             <div id="refListContainer"><p style="color:var(--sub); text-align:center;">No referrals yet.</p></div>
@@ -209,7 +221,7 @@
         </div>
     </div>
 
-    <!-- WITHDRAW (Updated: phone number, min $2) -->
+    <!-- WITHDRAW (with History) -->
     <div id="withdrawPage" class="page">
         <div class="withdraw-box">
             <div style="text-align:center; margin-bottom:20px;">
@@ -222,6 +234,18 @@
             <input class="withdraw-input" id="withdrawAmount" type="number" placeholder="Enter amount in USD" min="2">
             <button class="btn-withdraw disabled" id="withdrawBtn" onclick="submitWithdraw()">Withdraw Now</button>
             <div style="margin-top:12px; font-size:12px; color:var(--sub);">Minimum withdrawal: $2.00</div>
+        </div>
+
+        <!-- Withdrawal History -->
+        <div style="margin-top:20px;">
+            <h3 style="color:var(--gold); margin-bottom:10px;">📋 Withdrawal History</h3>
+            <div class="withdraw-tabs">
+                <button class="active" onclick="filterHistory('all')">All</button>
+                <button onclick="filterHistory('pending')">Pending</button>
+                <button onclick="filterHistory('paid')">Approved</button>
+                <button onclick="filterHistory('rejected')">Rejected</button>
+            </div>
+            <div id="historyContainer"></div>
         </div>
     </div>
 
@@ -286,6 +310,8 @@
         const userAvatar = tgUser.photo_url || `https://ui-avatars.com/api/?name=${userName}&background=3b82f6&color=fff&rounded=true`;
 
         let currentUserId = null, currentUserRef = null, myReferralCode = null;
+        let historyFilter = 'all';
+        let userAdsWatched = 0;
 
         let countdown = 3;
         const timerDisplay = document.getElementById('timerDisplay');
@@ -306,7 +332,8 @@
                     const newUser = {
                         telegram_id: telegramId, first_name: userName, avatar_url: userAvatar,
                         points_balance: 0, ads_watched: 0, referrals: 0, ref_earnings: 0,
-                        referral_code: myReferralCode, referred_by: null
+                        referral_code: myReferralCode, referred_by: null,
+                        total_withdrawn: 0
                     };
                     const doc = await db.collection("users").add(newUser);
                     currentUserId = doc.id; currentUserRef = doc; userData = newUser;
@@ -315,7 +342,6 @@
                     userData = q.docs[0].data(); myReferralCode = userData.referral_code;
                 }
 
-                // Referral Logic
                 if (isNewUser && referralCodeFromUrl) {
                     const inviterQuery = await db.collection("users").where("referral_code", "==", referralCodeFromUrl).get();
                     if (!inviterQuery.empty) {
@@ -325,18 +351,19 @@
                     }
                 }
 
+                userAdsWatched = userData.ads_watched || 0;
                 document.getElementById('userName').innerText = userName;
                 document.getElementById('userIdDisplay').innerText = `ID: ${telegramId}`;
                 document.getElementById('profileName').innerText = userName;
                 document.getElementById('profileId').innerText = `ID: ${telegramId}`;
                 document.getElementById('userAvatar').src = userAvatar;
                 document.getElementById('profileAvatar').src = userAvatar;
-                document.getElementById('adsWatchedDisplay').innerText = userData.ads_watched||0;
+                document.getElementById('adsWatchedDisplay').innerText = userAdsWatched;
                 document.getElementById('totalRefs').innerText = userData.referrals||0;
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
-                calculateUSD(userData.ads_watched||0);
+                calculateUSD(userAdsWatched);
 
-                listenForUpdates(); loadRankings(); loadNews(); loadReferrals(); loadGroupChat(); loadPrivateChat();
+                listenForUpdates(); loadRankings(); loadNews(); loadReferrals(); loadGroupChat(); loadPrivateChat(); loadHistory();
             } catch(e) { console.error("Error initializing user:", e); }
         }
 
@@ -345,10 +372,11 @@
             currentUserRef.onSnapshot(doc => {
                 if(doc.exists) {
                     const d = doc.data();
-                    document.getElementById('adsWatchedDisplay').innerText = d.ads_watched||0;
+                    userAdsWatched = d.ads_watched || 0;
+                    document.getElementById('adsWatchedDisplay').innerText = userAdsWatched;
                     document.getElementById('totalRefs').innerText = d.referrals||0;
-                    calculateUSD(d.ads_watched||0);
-                    loadRankings(); loadReferrals();
+                    calculateUSD(userAdsWatched);
+                    loadRankings(); loadReferrals(); loadHistory();
                 }
             });
         }
@@ -357,10 +385,12 @@
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-            el.classList.add('active');
+            if(el) el.classList.add('active');
             if(id==='rankingPage') loadRankings();
             if(id==='referralPage') loadReferrals();
             if(id==='groupChatPage') loadGroupChat();
+            if(id==='withdrawPage') loadHistory();
+            if(id==='profilePage') loadPrivateChat();
         }
 
         function watchAd() {
@@ -431,7 +461,6 @@
         }
 
         function calculateUSD(ads) {
-            // 1 ad = $0.0005, so 2000 ads = $1, 4000 ads = $2, etc.
             const usd = (ads / 2000) * 1; 
             document.getElementById('usdBalance').innerText = `$${usd.toFixed(2)}`;
             const btn = document.getElementById('withdrawBtn'), input = document.getElementById('withdrawAmount');
@@ -451,15 +480,82 @@
             if(!phone) return tg.showAlert("Enter a valid phone number with country code.");
             if (!phone.startsWith('+')) return tg.showAlert("Include country code, e.g. +1234567890");
             if(amount < 2) return tg.showAlert("Minimum withdrawal is $2.00");
+            
+            // Check if user has enough balance
+            const currentBalance = parseFloat(document.getElementById('usdBalance').textContent.replace('$', ''));
+            if(amount > currentBalance) return tg.showAlert("Insufficient balance!");
+            
             db.collection("withdrawals").add({
-                user_id: telegramId, user_name: userName, phone: phone, amount: amount, status: "pending"
+                user_id: telegramId, user_name: userName, phone: phone, amount: amount, status: "pending",
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 tg.showAlert("Withdrawal request sent to Admin!");
                 document.getElementById('phoneNumber').value = ''; document.getElementById('withdrawAmount').value = '';
                 btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now';
+                loadHistory();
             });
         }
 
+        // --- WITHDRAWAL HISTORY ---
+        function filterHistory(filter) {
+            historyFilter = filter;
+            document.querySelectorAll('.withdraw-tabs button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.withdraw-tabs button').forEach(b => {
+                if(b.textContent.toLowerCase() === filter || (filter === 'all' && b.textContent === 'All')) {
+                    b.classList.add('active');
+                }
+            });
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const container = document.getElementById('historyContainer');
+            container.innerHTML = '<div style="color:var(--sub); text-align:center; padding:10px;">Loading history...</div>';
+
+            db.collection("withdrawals")
+                .where("user_id", "==", telegramId)
+                .orderBy("timestamp", "desc")
+                .onSnapshot((snap) => {
+                    let html = '';
+                    let hasData = false;
+
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        const status = data.status || 'pending';
+                        
+                        if (historyFilter !== 'all' && status !== historyFilter) return;
+                        hasData = true;
+
+                        const amount = data.amount || 0;
+                        const phone = data.phone || 'No phone';
+                        const timestamp = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : '';
+
+                        let statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                        let statusClass = status;
+
+                        html += `
+                            <div class="history-item">
+                                <div>
+                                    <div class="h-amount">$${amount.toFixed(2)}</div>
+                                    <div class="h-date">📱 ${phone}</div>
+                                </div>
+                                <div>
+                                    <span class="h-status ${statusClass}">${statusLabel}</span>
+                                    <div class="h-date">${timestamp}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    if (!hasData) {
+                        container.innerHTML = '<div style="color:var(--sub); text-align:center; padding:20px;">No withdrawal history in this category.</div>';
+                    } else {
+                        container.innerHTML = html;
+                    }
+                });
+        }
+
+        // --- PRIVATE CHAT ---
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
@@ -468,26 +564,30 @@
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 tg.showAlert("Message sent to Admin!");
-                document.getElementById('adminMessageInput').value = ''; loadPrivateChat();
+                document.getElementById('adminMessageInput').value = ''; 
+                loadPrivateChat();
             }).catch((e) => { console.error("Error sending private message:", e); tg.showAlert("Error sending message. Please try again."); });
         }
 
         function loadPrivateChat() {
-            db.collection("admin_inbox").where("telegram_id", "==", telegramId).orderBy("timestamp", "asc").onSnapshot((snap) => {
-                const container = document.getElementById('privateChatMessages');
-                let html = '';
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const isAdmin = data.from_admin === true;
-                    const align = isAdmin ? 'flex-end' : 'flex-start';
-                    const bg = isAdmin ? '#fbbf24' : '#334155';
-                    const color = isAdmin ? '#000' : '#fff';
-                    const sender = isAdmin ? '👑 Admin' : 'You';
-                    html += `<div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:80%; margin-bottom:5px; word-break:break-all;"><small style="font-size:10px; font-weight:bold; display:block; margin-bottom:2px;">${sender}</small>${data.message}</div>`;
+            db.collection("admin_inbox")
+                .where("telegram_id", "==", telegramId)
+                .orderBy("timestamp", "asc")
+                .onSnapshot((snap) => {
+                    const container = document.getElementById('privateChatMessages');
+                    let html = '';
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        const isAdmin = data.from_admin === true;
+                        const align = isAdmin ? 'flex-end' : 'flex-start';
+                        const bg = isAdmin ? '#fbbf24' : '#334155';
+                        const color = isAdmin ? '#000' : '#fff';
+                        const sender = isAdmin ? '👑 Admin' : 'You';
+                        html += `<div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:80%; margin-bottom:5px; word-break:break-all;"><small style="font-size:10px; font-weight:bold; display:block; margin-bottom:2px;">${sender}</small>${data.message}</div>`;
+                    });
+                    container.innerHTML = html || '<div style="color:var(--sub); text-align:center;">No messages yet.</div>';
+                    container.scrollTop = container.scrollHeight;
                 });
-                container.innerHTML = html || '<div style="color:var(--sub); text-align:center;">No messages yet.</div>';
-                container.scrollTop = container.scrollHeight;
-            });
         }
 
         function toggleTheme() {
