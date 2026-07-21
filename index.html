@@ -46,11 +46,13 @@
         .profile-card .info h2 { font-size:18px; font-weight:700; }
         .profile-card .info p { color:var(--sub); font-size:13px; margin-top:2px; }
 
-        .stats-grid { display:grid; grid-template-columns:1fr; gap:15px; margin-bottom:20px; max-width:300px; margin:0 auto; }
+        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px; max-width:300px; margin:0 auto; }
         .stat-box { background:var(--card); border-radius:16px; padding:20px; text-align:center; border:1px solid var(--border); }
         .stat-box .icon-circle { width:40px; height:40px; border-radius:50%; display:flex; justify-content:center; align-items:center; margin:0 auto 10px; font-size:18px; }
         .stat-box .icon-circle.blue { background:rgba(59,130,246,0.2); color:var(--blue); }
+        .stat-box .icon-circle.gold { background:rgba(251,191,36,0.2); color:var(--gold); }
         .stat-box .num { font-size:24px; font-weight:700; display:block; }
+        .stat-box .num.gold-text { color:var(--gold); }
         .stat-box .label { font-size:12px; color:var(--sub); margin-top:5px; display:block; }
 
         .btn-watch { width:100%; background:var(--green); color:#fff; border:none; padding:16px; border-radius:50px; font-size:16px; font-weight:700; cursor:pointer; transition:0.2s; display:flex; justify-content:center; align-items:center; gap:10px; }
@@ -122,7 +124,6 @@
         #groupChatPage .input-area input { flex:1; margin:0; padding:12px; }
         #groupChatPage .input-area button { padding:0 20px; width:auto; }
 
-        /* Withdrawal History */
         .history-item { background:var(--card); padding:12px 16px; border-radius:10px; border:1px solid var(--border); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:5px; }
         .history-item .h-amount { font-weight:bold; color:var(--gold); }
         .history-item .h-status { font-size:12px; padding:2px 10px; border-radius:12px; }
@@ -137,6 +138,11 @@
         .withdraw-tabs { display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap; }
         .withdraw-tabs button { background:var(--card); color:var(--sub); border:1px solid var(--border); padding:8px 16px; border-radius:20px; cursor:pointer; transition:0.2s; }
         .withdraw-tabs button.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+        
+        .private-msg { padding:8px 12px; border-radius:10px; max-width:80%; margin-bottom:5px; word-break:break-all; }
+        .private-msg.admin { align-self:flex-end; background:#fbbf24; color:#000; }
+        .private-msg.user { align-self:flex-start; background:#334155; color:#fff; }
+        .private-msg .sender { font-size:10px; font-weight:bold; display:block; margin-bottom:2px; }
     </style>
 </head>
 <body>
@@ -169,6 +175,11 @@
                 <div class="icon-circle blue">👁️</div>
                 <span class="num" id="adsWatchedDisplay">0</span>
                 <span class="label">Ads Watched</span>
+            </div>
+            <div class="stat-box">
+                <div class="icon-circle gold">💰</div>
+                <span class="num gold-text" id="homeBalanceDisplay">$0.00</span>
+                <span class="label">Your Balance</span>
             </div>
         </div>
         <button class="btn-watch" id="watchAdBtn" onclick="watchAd()">▶ Watch Ad & Earn</button>
@@ -221,7 +232,7 @@
         </div>
     </div>
 
-    <!-- WITHDRAW (with History) -->
+    <!-- WITHDRAW -->
     <div id="withdrawPage" class="page">
         <div class="withdraw-box">
             <div style="text-align:center; margin-bottom:20px;">
@@ -321,6 +332,11 @@
             else { clearInterval(timerInterval); document.getElementById('introScreen').classList.add('hidden'); }
         }, 1000);
 
+        // Calculate USD balance from ads
+        function calculateBalance(ads) {
+            return (ads / 2000) * 1;
+        }
+
         async function initUser() {
             try {
                 const q = await db.collection("users").where("telegram_id", "==", telegramId).get();
@@ -352,6 +368,8 @@
                 }
 
                 userAdsWatched = userData.ads_watched || 0;
+                const balance = calculateBalance(userAdsWatched);
+                
                 document.getElementById('userName').innerText = userName;
                 document.getElementById('userIdDisplay').innerText = `ID: ${telegramId}`;
                 document.getElementById('profileName').innerText = userName;
@@ -359,6 +377,7 @@
                 document.getElementById('userAvatar').src = userAvatar;
                 document.getElementById('profileAvatar').src = userAvatar;
                 document.getElementById('adsWatchedDisplay').innerText = userAdsWatched;
+                document.getElementById('homeBalanceDisplay').innerText = `$${balance.toFixed(2)}`;
                 document.getElementById('totalRefs').innerText = userData.referrals||0;
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
@@ -373,7 +392,9 @@
                 if(doc.exists) {
                     const d = doc.data();
                     userAdsWatched = d.ads_watched || 0;
+                    const balance = calculateBalance(userAdsWatched);
                     document.getElementById('adsWatchedDisplay').innerText = userAdsWatched;
+                    document.getElementById('homeBalanceDisplay').innerText = `$${balance.toFixed(2)}`;
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(userAdsWatched);
                     loadRankings(); loadReferrals(); loadHistory();
@@ -481,7 +502,6 @@
             if (!phone.startsWith('+')) return tg.showAlert("Include country code, e.g. +1234567890");
             if(amount < 2) return tg.showAlert("Minimum withdrawal is $2.00");
             
-            // Check if user has enough balance
             const currentBalance = parseFloat(document.getElementById('usdBalance').textContent.replace('$', ''));
             if(amount > currentBalance) return tg.showAlert("Insufficient balance!");
             
@@ -496,7 +516,6 @@
             });
         }
 
-        // --- WITHDRAWAL HISTORY ---
         function filterHistory(filter) {
             historyFilter = filter;
             document.querySelectorAll('.withdraw-tabs button').forEach(b => b.classList.remove('active'));
@@ -555,7 +574,6 @@
                 });
         }
 
-        // --- PRIVATE CHAT ---
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
