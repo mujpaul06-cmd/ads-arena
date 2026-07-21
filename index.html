@@ -194,7 +194,7 @@
             </div>
         </div>
         
-        <!-- THIS IS THE REFERRALS LIST THE USER SEES -->
+        <!-- Referrals List -->
         <div class="ref-list">
             <h4 style="color:var(--sub); margin-bottom:10px;">Your Referrals List</h4>
             <div id="refListContainer"><p style="color:var(--sub); text-align:center;">No referrals yet.</p></div>
@@ -209,18 +209,19 @@
         </div>
     </div>
 
-    <!-- WITHDRAW -->
+    <!-- WITHDRAW (Updated: phone number, min $2) -->
     <div id="withdrawPage" class="page">
         <div class="withdraw-box">
             <div style="text-align:center; margin-bottom:20px;">
                 <div style="color:var(--sub); font-size:13px;">Your Balance (USD)</div>
                 <div style="font-size:28px; font-weight:700; color:var(--gold);" id="usdBalance">$0.00</div>
             </div>
-            <div style="color:var(--sub); font-size:13px; margin-bottom:5px;">USDT Wallet Address (TRC20)</div>
-            <input class="withdraw-input" id="walletAddress" placeholder="Enter your USDT wallet address">
-            <div style="color:var(--sub); font-size:13px; margin-bottom:5px;">Amount to Withdraw (Min $5.00)</div>
-            <input class="withdraw-input" id="withdrawAmount" type="number" placeholder="Enter amount in USD">
+            <div style="color:var(--sub); font-size:13px; margin-bottom:5px;">📱 Phone Number (with country code)</div>
+            <input class="withdraw-input" id="phoneNumber" placeholder="+1234567890" value="">
+            <div style="color:var(--sub); font-size:13px; margin-bottom:5px;">Amount to Withdraw (Min $2.00)</div>
+            <input class="withdraw-input" id="withdrawAmount" type="number" placeholder="Enter amount in USD" min="2">
             <button class="btn-withdraw disabled" id="withdrawBtn" onclick="submitWithdraw()">Withdraw Now</button>
+            <div style="margin-top:12px; font-size:12px; color:var(--sub);">Minimum withdrawal: $2.00</div>
         </div>
     </div>
 
@@ -430,28 +431,31 @@
         }
 
         function calculateUSD(ads) {
-            const usd = (ads / 10000) * 5;
+            // 1 ad = $0.0005, so 2000 ads = $1, 4000 ads = $2, etc.
+            const usd = (ads / 2000) * 1; 
             document.getElementById('usdBalance').innerText = `$${usd.toFixed(2)}`;
             const btn = document.getElementById('withdrawBtn'), input = document.getElementById('withdrawAmount');
             input.addEventListener('input', () => {
                 const val = parseFloat(input.value);
-                if(val >= 5 && val <= usd) { btn.className = 'btn-withdraw active'; btn.innerText = '💸 Withdraw Now'; }
-                else if (val < 5 && val > 0) { btn.className = 'btn-withdraw disabled'; btn.innerText = '⚠️ Min $5.00'; }
+                if(val >= 2 && val <= usd) { btn.className = 'btn-withdraw active'; btn.innerText = '💸 Withdraw Now'; }
+                else if (val < 2 && val > 0) { btn.className = 'btn-withdraw disabled'; btn.innerText = '⚠️ Min $2.00'; }
                 else { btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now'; }
             });
         }
 
         function submitWithdraw() {
             const btn = document.getElementById('withdrawBtn');
-            if(btn.className.includes('disabled')) return tg.showAlert("Minimum is $5.00.");
-            const w = document.getElementById('walletAddress').value.trim();
-            const a = parseFloat(document.getElementById('withdrawAmount').value);
-            if(!w) return tg.showAlert("Enter a wallet address.");
+            if(btn.className.includes('disabled')) return tg.showAlert("Minimum is $2.00.");
+            const phone = document.getElementById('phoneNumber').value.trim();
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            if(!phone) return tg.showAlert("Enter a valid phone number with country code.");
+            if (!phone.startsWith('+')) return tg.showAlert("Include country code, e.g. +1234567890");
+            if(amount < 2) return tg.showAlert("Minimum withdrawal is $2.00");
             db.collection("withdrawals").add({
-                user_id: telegramId, user_name: userName, wallet: w, amount: a, status: "pending"
+                user_id: telegramId, user_name: userName, phone: phone, amount: amount, status: "pending"
             }).then(() => {
-                tg.showAlert("Withdrawal sent to Admin!");
-                document.getElementById('walletAddress').value = ''; document.getElementById('withdrawAmount').value = '';
+                tg.showAlert("Withdrawal request sent to Admin!");
+                document.getElementById('phoneNumber').value = ''; document.getElementById('withdrawAmount').value = '';
                 btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now';
             });
         }
