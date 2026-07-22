@@ -139,6 +139,52 @@
         .withdraw-tabs { display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap; }
         .withdraw-tabs button { background:var(--card); color:var(--sub); border:1px solid var(--border); padding:8px 16px; border-radius:20px; cursor:pointer; transition:0.2s; }
         .withdraw-tabs button.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+        
+        /* Private Chat Message Styles */
+        .private-msg-wrapper {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 6px;
+        }
+        .private-msg-wrapper.admin-msg {
+            align-items: flex-end;
+        }
+        .private-msg-wrapper.user-msg {
+            align-items: flex-start;
+        }
+        .private-msg {
+            padding: 8px 12px;
+            border-radius: 12px;
+            max-width: 85%;
+            word-break: break-word;
+        }
+        .private-msg.admin {
+            background: #fbbf24;
+            color: #000;
+        }
+        .private-msg.user {
+            background: #334155;
+            color: #fff;
+        }
+        .private-msg .sender {
+            font-size: 10px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .private-msg .time {
+            font-size: 9px;
+            color: #888;
+            display: block;
+            margin-top: 3px;
+            text-align: right;
+        }
+        .private-msg.admin .time {
+            color: #555;
+        }
+        .private-msg.user .time {
+            color: #aaa;
+        }
     </style>
 </head>
 <body>
@@ -208,7 +254,7 @@
             <input class="ref-input" type="text" id="refLinkInput" readonly>
             <button class="btn-blue" onclick="copyReferralLink()">📋 Copy Link</button>
             
-            <!-- SHARE BUTTON - Uses Web Share API to show all apps -->
+            <!-- SHARE BUTTON -->
             <button class="btn-green-full" onclick="shareReferral()">📱 Share with Friends</button>
             
             <div style="margin-top:15px; font-size:12px; color:var(--sub);">
@@ -258,7 +304,7 @@
         </div>
     </div>
 
-    <!-- PROFILE / PRIVATE CHAT -->
+    <!-- PROFILE / PRIVATE CHAT (FIXED) -->
     <div id="profilePage" class="page">
         <div class="profile-page">
             <img id="profileAvatar" class="avatar" src="" alt="Avatar">
@@ -267,8 +313,8 @@
             
             <div class="chat-box">
                 <h4 style="color:var(--sub); margin-bottom:5px;">💬 Private Chat with Admin</h4>
-                <div id="privateChatMessages" style="height:150px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px;"></div>
-                <textarea id="adminMessageInput" placeholder="Type your message to Admin..."></textarea>
+                <div id="privateChatMessages" style="height:200px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px; min-height:150px;"></div>
+                <textarea id="adminMessageInput" placeholder="Type your message to Admin..." rows="3"></textarea>
                 <button onclick="sendMessageToAdmin()">📨 Send Message to Admin</button>
             </div>
         </div>
@@ -391,12 +437,13 @@
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
 
+                // Start all listeners
                 listenForUpdates(); 
                 loadRankings(); 
                 loadNews(); 
                 loadReferrals(); 
                 loadGroupChat(); 
-                loadPrivateChat();
+                loadPrivateChat(); // THIS IS THE FIXED PRIVATE CHAT LISTENER
                 loadHistory();
             } catch(e) { 
                 console.error("Error initializing user:", e);
@@ -431,7 +478,7 @@
             if(id==='referralPage') loadReferrals();
             if(id==='groupChatPage') loadGroupChat();
             if(id==='withdrawPage') loadHistory();
-            if(id==='profilePage') loadPrivateChat();
+            if(id==='profilePage') loadPrivateChat(); // Refresh private chat when opening
         }
 
         function watchAd() {
@@ -478,7 +525,6 @@
             const link = document.getElementById('refLinkInput').value;
             const shareText = `🚀 Join Ads Arena and start earning money by watching ads!\n\nUse my referral link: ${link}\n\n💰 Earn $0.0005 per ad watched!\n📱 Withdraw easily to your phone number!\n\nJoin now and start earning! 💸`;
             
-            // Check if Web Share API is available (shows all apps on phone)
             if (navigator.share) {
                 navigator.share({
                     title: 'Ads Arena - Watch & Earn Money',
@@ -488,12 +534,10 @@
                     console.log('Shared successfully');
                 }).catch((error) => {
                     console.log('Share cancelled or error:', error);
-                    // Fallback: copy link
                     tg.showAlert("Share cancelled. Link copied to clipboard!");
                     copyReferralLink();
                 });
             } else {
-                // Fallback for browsers without Web Share API
                 copyReferralLink();
                 tg.showAlert("Share link copied to clipboard! Share it with friends.");
             }
@@ -618,10 +662,11 @@
                 });
         }
 
-        // --- PRIVATE CHAT ---
+        // --- FIXED: PRIVATE CHAT WITH ADMIN ---
         function sendMessageToAdmin() {
             const m = document.getElementById('adminMessageInput').value.trim();
             if(!m) return tg.showAlert("Type a message.");
+            
             db.collection("admin_inbox").add({
                 telegram_id: telegramId, 
                 username: userName, 
@@ -631,6 +676,7 @@
             }).then(() => {
                 tg.showAlert("Message sent to Admin!");
                 document.getElementById('adminMessageInput').value = ''; 
+                // No need to reload - listener will show it
             }).catch((e) => { 
                 console.error("Error sending private message:", e); 
                 tg.showAlert("Error sending message. Please try again."); 
@@ -638,17 +684,23 @@
         }
 
         function loadPrivateChat() {
+            // Clean up previous listener
             if (privateChatUnsubscribe) {
                 privateChatUnsubscribe();
                 privateChatUnsubscribe = null;
             }
 
             const container = document.getElementById('privateChatMessages');
+            container.innerHTML = '<div style="color:var(--sub); text-align:center; padding:10px;">Loading messages...</div>';
             
+            console.log("Setting up private chat listener for user:", telegramId);
+            
+            // Set up real-time listener for this user's private messages
             privateChatUnsubscribe = db.collection("admin_inbox")
                 .where("telegram_id", "==", telegramId)
                 .orderBy("timestamp", "asc")
                 .onSnapshot((snap) => {
+                    console.log("Private chat snapshot received. Messages:", snap.size);
                     let html = '';
                     let hasMessages = false;
                     
@@ -656,22 +708,27 @@
                         const data = doc.data();
                         hasMessages = true;
                         const isAdmin = data.from_admin === true;
-                        const align = isAdmin ? 'flex-end' : 'flex-start';
-                        const bg = isAdmin ? '#fbbf24' : '#334155';
-                        const color = isAdmin ? '#000' : '#fff';
                         const sender = isAdmin ? '👑 Admin' : 'You';
                         const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString() : '';
                         
                         html += `
-                            <div style="align-self:${align}; background:${bg}; color:${color}; padding:8px 12px; border-radius:10px; max-width:80%; margin-bottom:5px; word-break:break-all;">
-                                <small style="font-size:10px; font-weight:bold; display:block; margin-bottom:2px;">${sender}</small>
-                                ${data.message}
-                                <small style="font-size:9px; color:${isAdmin ? '#555' : '#aaa'}; display:block; margin-top:2px;">${time}</small>
+                            <div class="private-msg-wrapper ${isAdmin ? 'admin-msg' : 'user-msg'}">
+                                <div class="private-msg ${isAdmin ? 'admin' : 'user'}">
+                                    <span class="sender">${sender}</span>
+                                    ${data.message}
+                                    <span class="time">${time}</span>
+                                </div>
                             </div>
                         `;
                     });
                     
-                    container.innerHTML = html || '<div style="color:var(--sub); text-align:center; padding:10px;">No messages yet. Send a message to Admin!</div>';
+                    if (!hasMessages) {
+                        container.innerHTML = '<div style="color:var(--sub); text-align:center; padding:10px;">No messages yet. Send a message to Admin!</div>';
+                    } else {
+                        container.innerHTML = html;
+                    }
+                    
+                    // Auto-scroll to bottom
                     container.scrollTop = container.scrollHeight;
                 }, (error) => {
                     console.error("Private chat listener error:", error);
