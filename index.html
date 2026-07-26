@@ -57,7 +57,63 @@
 
         .btn-watch { width:100%; background:var(--green); color:#fff; border:none; padding:16px; border-radius:50px; font-size:16px; font-weight:700; cursor:pointer; transition:0.2s; display:flex; justify-content:center; align-items:center; gap:10px; }
         .btn-watch:active { transform:scale(0.98); }
-        .btn-watch:disabled { background:#4b5563; cursor:not-allowed; }
+        .btn-watch:disabled { background:#4b5563; cursor:not-allowed; opacity:0.6; }
+
+        .daily-limit-badge {
+            background: rgba(251, 191, 36, 0.15);
+            color: var(--gold);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 8px;
+        }
+
+        .limit-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(6, 11, 24, 0.92);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9998;
+            flex-direction: column;
+            padding: 30px;
+            text-align: center;
+        }
+        .limit-overlay.show {
+            display: flex;
+        }
+        .limit-overlay .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .limit-overlay h2 {
+            font-size: 24px;
+            color: var(--gold);
+            margin-bottom: 12px;
+        }
+        .limit-overlay p {
+            color: var(--sub);
+            font-size: 16px;
+            max-width: 320px;
+            line-height: 1.6;
+        }
+        .limit-overlay .close-btn {
+            margin-top: 30px;
+            background: var(--blue);
+            color: #fff;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
 
         .rank-card { background:var(--card); border-radius:16px; padding:15px 20px; margin-top:20px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
         .rank-card .left h4 { color:var(--sub); font-size:13px; font-weight:400; }
@@ -196,7 +252,6 @@
             margin-bottom: 10px;
         }
 
-        /* Private chat container */
         #privateChatMessages {
             height: 240px;
             overflow-y: auto;
@@ -246,6 +301,14 @@
 </head>
 <body>
 
+    <!-- LIMIT OVERLAY -->
+    <div class="limit-overlay" id="limitOverlay">
+        <div class="icon">⏰</div>
+        <h2>Daily Limit Reached</h2>
+        <p>You've used all 3 of your daily app openings. Please come back tomorrow to continue earning!</p>
+        <button class="close-btn" onclick="closeLimitOverlay()">Got it</button>
+    </div>
+
     <!-- INTRO -->
     <div id="introScreen">
         <div class="intro-logo">ADS <span>ARENA</span></div>
@@ -282,6 +345,9 @@
             </div>
         </div>
         <button class="btn-watch" id="watchAdBtn" onclick="watchAd()">▶ Watch Ad & Earn</button>
+        <div style="text-align:center; margin-top:8px;">
+            <span class="daily-limit-badge" id="dailyLimitDisplay">📊 Today: 0 / 3 openings</span>
+        </div>
         <div class="rank-card">
             <div class="left">
                 <h4>Your Rank</h4>
@@ -365,7 +431,7 @@
         </div>
     </div>
 
-    <!-- PROFILE / PRIVATE CHAT (FIXED) -->
+    <!-- PROFILE / PRIVATE CHAT -->
     <div id="profilePage" class="page">
         <div class="profile-page">
             <img id="profileAvatar" class="avatar" src="" alt="Avatar">
@@ -429,19 +495,115 @@
         let historyFilter = 'all';
         let userAdsWatched = 0;
         let privateChatUnsubscribe = null;
+        let dailyOpens = 0;
+        let lastOpenDate = null;
+        let isLimitReached = false;
 
         let countdown = 3;
         const timerDisplay = document.getElementById('timerDisplay');
         const timerInterval = setInterval(() => {
             countdown--;
             if (countdown >= 1) { timerDisplay.innerText = countdown; }
-            else { clearInterval(timerInterval); document.getElementById('introScreen').classList.add('hidden'); }
+            else { 
+                clearInterval(timerInterval); 
+                document.getElementById('introScreen').classList.add('hidden');
+                // After intro, check daily limit
+                setTimeout(checkDailyLimit, 500);
+            }
         }, 1000);
 
         const MIN_WITHDRAW = 2.00;
+        const DAILY_LIMIT = 3;
 
         function calculateBalance(ads) {
             return (ads / 2000) * 1;
+        }
+
+        function getTodayString() {
+            return new Date().toDateString();
+        }
+
+        function closeLimitOverlay() {
+            document.getElementById('limitOverlay').classList.remove('show');
+        }
+
+        function checkDailyLimit() {
+            const today = getTodayString();
+            
+            // Check if we need to reset daily counter
+            if (lastOpenDate !== today) {
+                dailyOpens = 0;
+                lastOpenDate = today;
+                isLimitReached = false;
+                // Update Firestore
+                if (currentUserRef) {
+                    currentUserRef.update({
+                        daily_opens: 0,
+                        last_open_date: today
+                    }).catch(e => console.error("Error resetting daily opens:", e));
+                }
+            }
+            
+            // Check if limit is reached
+            if (dailyOpens >= DAILY_LIMIT) {
+                isLimitReached = true;
+                document.getElementById('limitOverlay').classList.add('show');
+                // Disable all interactive elements
+                document.getElementById('watchAdBtn').disabled = true;
+                document.getElementById('watchAdBtn').textContent = '⏳ Daily Limit Reached';
+            } else {
+                isLimitReached = false;
+                document.getElementById('limitOverlay').classList.remove('show');
+            }
+            
+            updateDailyLimitDisplay();
+        }
+
+        function incrementDailyOpen() {
+            const today = getTodayString();
+            
+            // Reset if new day
+            if (lastOpenDate !== today) {
+                dailyOpens = 0;
+                lastOpenDate = today;
+                isLimitReached = false;
+            }
+            
+            // Only increment if not already at limit
+            if (dailyOpens < DAILY_LIMIT) {
+                dailyOpens++;
+                lastOpenDate = today;
+                
+                // Update Firestore
+                if (currentUserRef) {
+                    currentUserRef.update({
+                        daily_opens: dailyOpens,
+                        last_open_date: today
+                    }).catch(e => console.error("Error updating daily opens:", e));
+                }
+                
+                // Check if we just reached the limit
+                if (dailyOpens >= DAILY_LIMIT) {
+                    isLimitReached = true;
+                    // Show overlay after a short delay
+                    setTimeout(() => {
+                        document.getElementById('limitOverlay').classList.add('show');
+                        document.getElementById('watchAdBtn').disabled = true;
+                        document.getElementById('watchAdBtn').textContent = '⏳ Daily Limit Reached';
+                    }, 300);
+                }
+            }
+            
+            updateDailyLimitDisplay();
+        }
+
+        function updateDailyLimitDisplay() {
+            const today = getTodayString();
+            if (lastOpenDate !== today) {
+                document.getElementById('dailyLimitDisplay').textContent = `📊 Today: 0 / ${DAILY_LIMIT} openings`;
+            } else {
+                document.getElementById('dailyLimitDisplay').textContent = `📊 Today: ${dailyOpens} / ${DAILY_LIMIT} openings`;
+            }
         }
 
         async function initUser() {
@@ -456,7 +618,9 @@
                         telegram_id: telegramId, first_name: userName, avatar_url: userAvatar,
                         points_balance: 0, ads_watched: 0, referrals: 0, ref_earnings: 0,
                         referral_code: myReferralCode, referred_by: null,
-                        total_withdrawn: 0
+                        total_withdrawn: 0,
+                        daily_opens: 0,
+                        last_open_date: getTodayString()
                     };
                     const doc = await db.collection("users").add(newUser);
                     currentUserId = doc.id; currentUserRef = doc; userData = newUser;
@@ -484,6 +648,19 @@
                 }
 
                 userAdsWatched = userData.ads_watched || 0;
+                dailyOpens = userData.daily_opens || 0;
+                lastOpenDate = userData.last_open_date || getTodayString();
+                
+                // Reset daily counter if new day
+                if (lastOpenDate !== getTodayString()) {
+                    dailyOpens = 0;
+                    lastOpenDate = getTodayString();
+                    await currentUserRef.update({
+                        daily_opens: 0,
+                        last_open_date: getTodayString()
+                    });
+                }
+
                 const balance = calculateBalance(userAdsWatched);
                 
                 document.getElementById('userName').innerText = userName;
@@ -497,14 +674,34 @@
                 document.getElementById('totalRefs').innerText = userData.referrals||0;
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
+                
+                // Update daily limit display
+                updateDailyLimitDisplay();
+                
+                // Check if limit is already reached
+                if (dailyOpens >= DAILY_LIMIT) {
+                    isLimitReached = true;
+                    document.getElementById('limitOverlay').classList.add('show');
+                    document.getElementById('watchAdBtn').disabled = true;
+                    document.getElementById('watchAdBtn').textContent = '⏳ Daily Limit Reached';
+                }
 
                 listenForUpdates(); 
                 loadRankings(); 
                 loadNews(); 
                 loadReferrals(); 
                 loadGroupChat(); 
-                loadPrivateChat(); // THIS IS THE FIXED PRIVATE CHAT LISTENER
+                loadPrivateChat();
                 loadHistory();
+                
+                // Increment daily open count after initialization
+                // Only if not already at limit
+                setTimeout(() => {
+                    if (dailyOpens < DAILY_LIMIT) {
+                        incrementDailyOpen();
+                    }
+                }, 1000);
+                
             } catch(e) { 
                 console.error("Error initializing user:", e);
                 tg.showAlert("Error loading app. Please refresh.");
@@ -522,6 +719,27 @@
                     document.getElementById('homeBalanceDisplay').innerText = `$${balance.toFixed(2)}`;
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(userAdsWatched);
+                    
+                    // Update daily counter from Firestore
+                    dailyOpens = d.daily_opens || 0;
+                    lastOpenDate = d.last_open_date || getTodayString();
+                    if (lastOpenDate !== getTodayString()) {
+                        dailyOpens = 0;
+                        lastOpenDate = getTodayString();
+                        currentUserRef.update({
+                            daily_opens: 0,
+                            last_open_date: getTodayString()
+                        });
+                    }
+                    updateDailyLimitDisplay();
+                    
+                    if (dailyOpens >= DAILY_LIMIT) {
+                        isLimitReached = true;
+                        document.getElementById('limitOverlay').classList.add('show');
+                        document.getElementById('watchAdBtn').disabled = true;
+                        document.getElementById('watchAdBtn').textContent = '⏳ Daily Limit Reached';
+                    }
+                    
                     loadRankings(); 
                     loadReferrals(); 
                     loadHistory();
@@ -530,6 +748,12 @@
         }
 
         function switchPage(id, el) {
+            // Check if limit is reached before allowing navigation
+            if (isLimitReached && id !== 'homePage') {
+                tg.showAlert("Daily limit reached! You can only view the home page until tomorrow.");
+                return;
+            }
+            
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -539,26 +763,67 @@
             if(id==='groupChatPage') loadGroupChat();
             if(id==='withdrawPage') loadHistory();
             if(id==='profilePage') {
-                // Re-initialize private chat listener when opening the page
                 loadPrivateChat();
             }
         }
 
         function watchAd() {
             const btn = document.getElementById('watchAdBtn');
-            btn.disabled = true; btn.innerText = "Loading Ad...";
-            if (typeof show_11083093 !== 'undefined') { show_11083093(); }
-            else {
-                tg.showAlert("Ad network loading. Please try again.");
-                btn.disabled = false; btn.innerText = "▶ Watch Ad & Earn"; return;
+            
+            // Check daily limit
+            if (isLimitReached || dailyOpens >= DAILY_LIMIT) {
+                tg.showAlert(`⚠️ Daily limit reached! You can open the app ${DAILY_LIMIT} times per day. Come back tomorrow.`);
+                btn.disabled = true;
+                btn.textContent = '⏳ Daily Limit Reached';
+                document.getElementById('limitOverlay').classList.add('show');
+                return;
             }
+
+            btn.disabled = true; 
+            btn.innerText = "Loading Ad...";
+            
+            if (typeof show_11083093 !== 'undefined') { 
+                show_11083093(); 
+            } else {
+                tg.showAlert("Ad network loading. Please try again.");
+                btn.disabled = false; 
+                btn.innerText = "▶ Watch Ad & Earn"; 
+                return;
+            }
+            
             setTimeout(() => {
+                // Increment daily counter and total ads
+                const newDailyOpens = dailyOpens + 1;
+                dailyOpens = newDailyOpens;
+                lastOpenDate = getTodayString();
+                
                 currentUserRef.update({
                     points_balance: firebase.firestore.FieldValue.increment(10),
-                    ads_watched: firebase.firestore.FieldValue.increment(1)
+                    ads_watched: firebase.firestore.FieldValue.increment(1),
+                    daily_opens: newDailyOpens,
+                    last_open_date: getTodayString()
                 }).then(() => { 
                     btn.disabled = false; 
-                    btn.innerText = "▶ Watch Ad & Earn"; 
+                    btn.innerText = "▶ Watch Ad & Earn";
+                    updateDailyLimitDisplay();
+                    userAdsWatched += 1;
+                    const balance = calculateBalance(userAdsWatched);
+                    document.getElementById('adsWatchedDisplay').innerText = userAdsWatched;
+                    document.getElementById('homeBalanceDisplay').innerText = `$${balance.toFixed(2)}`;
+                    calculateUSD(userAdsWatched);
+                    
+                    // Check if we just reached the limit
+                    if (dailyOpens >= DAILY_LIMIT) {
+                        isLimitReached = true;
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Daily Limit Reached';
+                        document.getElementById('limitOverlay').classList.add('show');
+                        tg.showAlert("You've reached your daily limit of 3 openings. Come back tomorrow!");
+                    }
+                }).catch((e) => {
+                    console.error("Error updating ad watch:", e);
+                    btn.disabled = false;
+                    btn.innerText = "▶ Watch Ad & Earn";
                 });
             }, 3000);
         }
@@ -637,7 +902,6 @@
             const btn = document.getElementById('withdrawBtn');
             const input = document.getElementById('withdrawAmount');
             
-            // Remove old listener to avoid duplicates
             input.removeEventListener('input', input._listener);
             input._listener = () => {
                 const val = parseFloat(input.value);
@@ -775,7 +1039,6 @@
                 });
         }
 
-        // --- PRIVATE CHAT WITH ADMIN (FIXED) ---
         function sendMessageToAdmin() {
             const input = document.getElementById('adminMessageInput');
             const m = input.value.trim();
@@ -790,7 +1053,6 @@
             }).then(() => {
                 tg.showAlert("Message sent to Admin!");
                 input.value = ''; 
-                // The listener will update the chat automatically
             }).catch((e) => { 
                 console.error("Error sending private message:", e); 
                 tg.showAlert("Error sending message. Please try again."); 
@@ -798,25 +1060,18 @@
         }
 
         function loadPrivateChat() {
-            // Clean up previous listener to avoid duplicates
             if (privateChatUnsubscribe) {
                 privateChatUnsubscribe();
                 privateChatUnsubscribe = null;
             }
 
             const container = document.getElementById('privateChatMessages');
-            
-            // Show loading state
             container.innerHTML = '<div class="empty-state">Loading messages...</div>';
             
-            console.log("Setting up private chat listener for user:", telegramId);
-            
-            // Set up real-time listener for this user's private messages
             privateChatUnsubscribe = db.collection("admin_inbox")
                 .where("telegram_id", "==", telegramId)
                 .orderBy("timestamp", "asc")
                 .onSnapshot((snap) => {
-                    console.log("Private chat snapshot received. Messages:", snap.size);
                     let html = '';
                     let hasMessages = false;
                     
@@ -842,7 +1097,6 @@
                         container.innerHTML = '<div class="empty-state">💬 No messages yet. Send a message to Admin!</div>';
                     } else {
                         container.innerHTML = html;
-                        // Auto-scroll to bottom
                         container.scrollTop = container.scrollHeight;
                     }
                 }, (error) => {
@@ -906,6 +1160,17 @@
                     container.scrollTop = container.scrollHeight;
                 });
         }
+
+        // Override the default page navigation to check limit
+        const originalSwitchPage = switchPage;
+        switchPage = function(id, el) {
+            // Allow home page always, but check limit for other pages
+            if (isLimitReached && id !== 'homePage') {
+                tg.showAlert("Daily limit reached! You can only view the home page until tomorrow.");
+                return;
+            }
+            originalSwitchPage(id, el);
+        };
 
         initUser();
     </script>
