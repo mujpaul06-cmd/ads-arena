@@ -140,7 +140,6 @@
         .withdraw-tabs button { background:var(--card); color:var(--sub); border:1px solid var(--border); padding:8px 16px; border-radius:20px; cursor:pointer; transition:0.2s; }
         .withdraw-tabs button.active { background:var(--blue); color:#fff; border-color:var(--blue); }
         
-        /* Private Chat Message Styles */
         .private-msg-wrapper {
             display: flex;
             flex-direction: column;
@@ -184,6 +183,64 @@
         }
         .private-msg.user .time {
             color: #aaa;
+        }
+        
+        .min-withdraw-badge {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        /* Private chat container */
+        #privateChatMessages {
+            height: 240px;
+            overflow-y: auto;
+            background: var(--bg);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-height: 180px;
+            border: 1px solid var(--border);
+        }
+        #privateChatMessages .empty-state {
+            color: var(--sub);
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+        }
+        .chat-box textarea {
+            width: 100%;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 8px;
+            resize: none;
+            height: 70px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .chat-box button {
+            background: var(--blue);
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .chat-box button:active {
+            transform: scale(0.98);
         }
     </style>
 </head>
@@ -254,7 +311,6 @@
             <input class="ref-input" type="text" id="refLinkInput" readonly>
             <button class="btn-blue" onclick="copyReferralLink()">📋 Copy Link</button>
             
-            <!-- SHARE BUTTON -->
             <button class="btn-green-full" onclick="shareReferral()">📱 Share with Friends</button>
             
             <div style="margin-top:15px; font-size:12px; color:var(--sub);">
@@ -283,12 +339,17 @@
                 <div style="color:var(--sub); font-size:13px;">Your Balance (USD)</div>
                 <div style="font-size:28px; font-weight:700; color:var(--gold);" id="usdBalance">$0.00</div>
             </div>
+            
+            <div style="text-align:center; margin-bottom:15px;">
+                <span class="min-withdraw-badge">💰 Minimum Withdrawal: $2.00</span>
+            </div>
+            
             <div style="color:var(--sub); font-size:13px; margin-bottom:5px;">📱 Phone Number (with country code)</div>
             <input class="withdraw-input" id="phoneNumber" placeholder="+1234567890" value="">
-            <div style="color:var(--sub); font-size:13px; margin-bottom:5px;">Amount to Withdraw (Min $2.00)</div>
-            <input class="withdraw-input" id="withdrawAmount" type="number" placeholder="Enter amount in USD" min="2">
+            <div style="color:var(--sub); font-size:13px; margin-bottom:5px;">Amount to Withdraw</div>
+            <input class="withdraw-input" id="withdrawAmount" type="number" placeholder="Enter amount in USD" min="2" step="0.01">
             <button class="btn-withdraw disabled" id="withdrawBtn" onclick="submitWithdraw()">Withdraw Now</button>
-            <div style="margin-top:12px; font-size:12px; color:var(--sub);">Minimum withdrawal: $2.00</div>
+            <div style="margin-top:12px; font-size:12px; color:var(--sub); text-align:center;">Minimum withdrawal: <strong style="color:var(--gold);">$2.00</strong></div>
         </div>
 
         <!-- Withdrawal History -->
@@ -312,8 +373,8 @@
             <p class="pid" id="profileId">ID: Loading...</p>
             
             <div class="chat-box">
-                <h4 style="color:var(--sub); margin-bottom:5px;">💬 Private Chat with Admin</h4>
-                <div id="privateChatMessages" style="height:200px; overflow-y:auto; background:var(--bg); padding:10px; border-radius:8px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px; min-height:150px;"></div>
+                <h4 style="color:var(--sub); margin-bottom:8px;">💬 Private Chat with Admin</h4>
+                <div id="privateChatMessages"></div>
                 <textarea id="adminMessageInput" placeholder="Type your message to Admin..." rows="3"></textarea>
                 <button onclick="sendMessageToAdmin()">📨 Send Message to Admin</button>
             </div>
@@ -377,7 +438,8 @@
             else { clearInterval(timerInterval); document.getElementById('introScreen').classList.add('hidden'); }
         }, 1000);
 
-        // Calculate USD balance from ads
+        const MIN_WITHDRAW = 2.00;
+
         function calculateBalance(ads) {
             return (ads / 2000) * 1;
         }
@@ -403,7 +465,6 @@
                     userData = q.docs[0].data(); myReferralCode = userData.referral_code;
                 }
 
-                // REFERRAL LOGIC
                 if (isNewUser && referralCodeFromUrl) {
                     const inviterQuery = await db.collection("users").where("referral_code", "==", referralCodeFromUrl).get();
                     if (!inviterQuery.empty) {
@@ -437,7 +498,6 @@
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
 
-                // Start all listeners
                 listenForUpdates(); 
                 loadRankings(); 
                 loadNews(); 
@@ -478,7 +538,10 @@
             if(id==='referralPage') loadReferrals();
             if(id==='groupChatPage') loadGroupChat();
             if(id==='withdrawPage') loadHistory();
-            if(id==='profilePage') loadPrivateChat(); // Refresh private chat when opening
+            if(id==='profilePage') {
+                // Re-initialize private chat listener when opening the page
+                loadPrivateChat();
+            }
         }
 
         function watchAd() {
@@ -520,7 +583,6 @@
             tg.showAlert("Link copied!");
         }
 
-        // --- SHARE REFERRAL - Shows all apps on phone ---
         function shareReferral() {
             const link = document.getElementById('refLinkInput').value;
             const shareText = `🚀 Join Ads Arena and start earning money by watching ads!\n\nUse my referral link: ${link}\n\n💰 Earn $0.0005 per ad watched!\n📱 Withdraw easily to your phone number!\n\nJoin now and start earning! 💸`;
@@ -572,35 +634,86 @@
         function calculateUSD(ads) {
             const usd = (ads / 2000) * 1; 
             document.getElementById('usdBalance').innerText = `$${usd.toFixed(2)}`;
-            const btn = document.getElementById('withdrawBtn'), input = document.getElementById('withdrawAmount');
-            input.addEventListener('input', () => {
+            const btn = document.getElementById('withdrawBtn');
+            const input = document.getElementById('withdrawAmount');
+            
+            // Remove old listener to avoid duplicates
+            input.removeEventListener('input', input._listener);
+            input._listener = () => {
                 const val = parseFloat(input.value);
-                if(val >= 2 && val <= usd) { btn.className = 'btn-withdraw active'; btn.innerText = '💸 Withdraw Now'; }
-                else if (val < 2 && val > 0) { btn.className = 'btn-withdraw disabled'; btn.innerText = '⚠️ Min $2.00'; }
-                else { btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now'; }
-            });
+                if (isNaN(val) || val <= 0) {
+                    btn.className = 'btn-withdraw disabled';
+                    btn.innerText = 'Enter amount';
+                    return;
+                }
+                if (val < MIN_WITHDRAW) {
+                    btn.className = 'btn-withdraw disabled';
+                    btn.innerText = `⚠️ Min $${MIN_WITHDRAW.toFixed(2)}`;
+                } else if (val > usd) {
+                    btn.className = 'btn-withdraw disabled';
+                    btn.innerText = '⚠️ Insufficient balance';
+                } else {
+                    btn.className = 'btn-withdraw active';
+                    btn.innerText = '💸 Withdraw Now';
+                }
+            };
+            input.addEventListener('input', input._listener);
         }
 
         function submitWithdraw() {
             const btn = document.getElementById('withdrawBtn');
-            if(btn.className.includes('disabled')) return tg.showAlert("Minimum is $2.00.");
+            if(btn.className.includes('disabled')) {
+                if (btn.innerText.includes('Min')) {
+                    tg.showAlert(`Minimum withdrawal is $${MIN_WITHDRAW.toFixed(2)}`);
+                } else {
+                    tg.showAlert("Please enter a valid amount.");
+                }
+                return;
+            }
+            
             const phone = document.getElementById('phoneNumber').value.trim();
             const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            
             if(!phone) return tg.showAlert("Enter a valid phone number with country code.");
             if (!phone.startsWith('+')) return tg.showAlert("Include country code, e.g. +1234567890");
-            if(amount < 2) return tg.showAlert("Minimum withdrawal is $2.00");
+            if (isNaN(amount) || amount < MIN_WITHDRAW) {
+                return tg.showAlert(`Minimum withdrawal is $${MIN_WITHDRAW.toFixed(2)}`);
+            }
             
             const currentBalance = parseFloat(document.getElementById('usdBalance').textContent.replace('$', ''));
             if(amount > currentBalance) return tg.showAlert("Insufficient balance!");
+
+            const adsToDeduct = Math.round(amount * 2000);
+            const newAdsWatched = Math.max(0, userAdsWatched - adsToDeduct);
             
-            db.collection("withdrawals").add({
-                user_id: telegramId, user_name: userName, phone: phone, amount: amount, status: "pending",
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            currentUserRef.update({
+                ads_watched: newAdsWatched,
+                total_withdrawn: firebase.firestore.FieldValue.increment(amount)
             }).then(() => {
-                tg.showAlert("Withdrawal request sent to Admin!");
-                document.getElementById('phoneNumber').value = ''; document.getElementById('withdrawAmount').value = '';
-                btn.className = 'btn-withdraw disabled'; btn.innerText = 'Withdraw Now';
+                return db.collection("withdrawals").add({
+                    user_id: telegramId, 
+                    user_name: userName, 
+                    phone: phone, 
+                    amount: amount, 
+                    ads_deducted: adsToDeduct,
+                    status: "pending",
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }).then(() => {
+                tg.showAlert(`✅ Withdrawal of $${amount.toFixed(2)} requested! Admin will process it.`);
+                document.getElementById('phoneNumber').value = ''; 
+                document.getElementById('withdrawAmount').value = '';
+                btn.className = 'btn-withdraw disabled'; 
+                btn.innerText = 'Withdraw Now';
                 loadHistory();
+                const newBalance = calculateBalance(newAdsWatched);
+                document.getElementById('usdBalance').innerText = `$${newBalance.toFixed(2)}`;
+                document.getElementById('homeBalanceDisplay').innerText = `$${newBalance.toFixed(2)}`;
+                document.getElementById('adsWatchedDisplay').innerText = newAdsWatched;
+                userAdsWatched = newAdsWatched;
+            }).catch((e) => {
+                console.error("Withdraw error:", e);
+                tg.showAlert("Error processing withdrawal. Please try again.");
             });
         }
 
@@ -662,9 +775,10 @@
                 });
         }
 
-        // --- FIXED: PRIVATE CHAT WITH ADMIN ---
+        // --- PRIVATE CHAT WITH ADMIN (FIXED) ---
         function sendMessageToAdmin() {
-            const m = document.getElementById('adminMessageInput').value.trim();
+            const input = document.getElementById('adminMessageInput');
+            const m = input.value.trim();
             if(!m) return tg.showAlert("Type a message.");
             
             db.collection("admin_inbox").add({
@@ -675,8 +789,8 @@
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 tg.showAlert("Message sent to Admin!");
-                document.getElementById('adminMessageInput').value = ''; 
-                // No need to reload - listener will show it
+                input.value = ''; 
+                // The listener will update the chat automatically
             }).catch((e) => { 
                 console.error("Error sending private message:", e); 
                 tg.showAlert("Error sending message. Please try again."); 
@@ -684,14 +798,16 @@
         }
 
         function loadPrivateChat() {
-            // Clean up previous listener
+            // Clean up previous listener to avoid duplicates
             if (privateChatUnsubscribe) {
                 privateChatUnsubscribe();
                 privateChatUnsubscribe = null;
             }
 
             const container = document.getElementById('privateChatMessages');
-            container.innerHTML = '<div style="color:var(--sub); text-align:center; padding:10px;">Loading messages...</div>';
+            
+            // Show loading state
+            container.innerHTML = '<div class="empty-state">Loading messages...</div>';
             
             console.log("Setting up private chat listener for user:", telegramId);
             
@@ -723,16 +839,15 @@
                     });
                     
                     if (!hasMessages) {
-                        container.innerHTML = '<div style="color:var(--sub); text-align:center; padding:10px;">No messages yet. Send a message to Admin!</div>';
+                        container.innerHTML = '<div class="empty-state">💬 No messages yet. Send a message to Admin!</div>';
                     } else {
                         container.innerHTML = html;
+                        // Auto-scroll to bottom
+                        container.scrollTop = container.scrollHeight;
                     }
-                    
-                    // Auto-scroll to bottom
-                    container.scrollTop = container.scrollHeight;
                 }, (error) => {
                     console.error("Private chat listener error:", error);
-                    container.innerHTML = '<div style="color:var(--red); text-align:center;">Error loading messages. Please refresh.</div>';
+                    container.innerHTML = '<div class="empty-state" style="color:var(--red);">⚠️ Error loading messages. Please refresh.</div>';
                 });
         }
 
@@ -745,34 +860,51 @@
         const badWords = ["badword1", "badword2", "fuck", "shit", "bitch", "ass", "damn", "hell"];
         function filterMessage(text) {
             let words = text.split(" ");
-            let filtered = words.map(word => { if (badWords.includes(word.toLowerCase())) return "****"; return word; });
+            let filtered = words.map(word => { 
+                if (badWords.includes(word.toLowerCase())) return "****"; 
+                return word; 
+            });
             return filtered.join(" ");
         }
 
         function sendGroupChatMessage() {
             const input = document.getElementById('groupChatInput');
-            let msg = input.value.trim(); if (!msg) return;
+            let msg = input.value.trim(); 
+            if (!msg) return;
             msg = filterMessage(msg);
             db.collection("groupchat").add({
-                user_id: telegramId, username: userName, message: msg, is_admin: false,
+                user_id: telegramId, 
+                username: userName, 
+                message: msg, 
+                is_admin: false,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => { input.value = ''; }).catch((e) => { console.error("Error sending group chat:", e); });
+            }).then(() => { 
+                input.value = ''; 
+            }).catch((e) => { 
+                console.error("Error sending group chat:", e); 
+            });
         }
 
         function loadGroupChat() {
-            db.collection("groupchat").orderBy("timestamp", "asc").onSnapshot((snap) => {
-                const container = document.getElementById('groupChatMessages');
-                let html = '';
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const isAdmin = data.is_admin === true;
-                    const name = data.username || "Unknown";
-                    const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString() : "";
-                    html += `<div class="msg-bubble ${isAdmin ? 'admin' : ''}"><span class="sender">${isAdmin ? '👑 Admin' : name}</span>${data.message}<span class="time">${time}</span></div>`;
+            db.collection("groupchat")
+                .orderBy("timestamp", "asc")
+                .onSnapshot((snap) => {
+                    const container = document.getElementById('groupChatMessages');
+                    let html = '';
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        const isAdmin = data.is_admin === true;
+                        const name = data.username || "Unknown";
+                        const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString() : "";
+                        html += `<div class="msg-bubble ${isAdmin ? 'admin' : ''}">
+                            <span class="sender">${isAdmin ? '👑 Admin' : name}</span>
+                            ${data.message}
+                            <span class="time">${time}</span>
+                        </div>`;
+                    });
+                    container.innerHTML = html || '<div style="text-align:center; color:var(--sub); padding:20px;">No messages yet. Start the conversation!</div>';
+                    container.scrollTop = container.scrollHeight;
                 });
-                container.innerHTML = html || '<div style="text-align:center; color:var(--sub); padding:20px;">No messages yet. Start the conversation!</div>';
-                container.scrollTop = container.scrollHeight;
-            });
         }
 
         initUser();
