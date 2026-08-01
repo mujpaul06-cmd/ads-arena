@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
-        :root { --bg: #060b18; --card: #0b1529; --border: #1e293b; --text: #ffffff; --sub: #94a3b8; --gold: #fbbf24; --green: #22c55e; --blue: #3b82f6; --red: #ef4444; --purple: #8b5cf6; --orange: #f59e0b; --pink: #ec4899; }
+        :root { --bg: #060b18; --card: #0b1529; --border: #1e293b; --text: #ffffff; --sub: #94a3b8; --gold: #fbbf24; --green: #22c55e; --blue: #3b82f6; --red: #ef4444; --purple: #8b5cf6; --pink: #ec4899; }
         .light-theme { --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --sub: #64748b; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
         body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; overflow-x: hidden; }
@@ -93,10 +93,9 @@
             font-size: 18px;
         }
 
-        /* Different colors for each button */
-        .btn-color-1 { background: #3b82f6; } /* Blue */
-        .btn-color-2 { background: #8b5cf6; } /* Purple */
-        .btn-color-3 { background: #ec4899; } /* Pink */
+        .btn-color-1 { background: #3b82f6; }
+        .btn-color-2 { background: #8b5cf6; }
+        .btn-color-3 { background: #ec4899; }
 
         .btn-color-1:disabled { background: #1e3a5f; }
         .btn-color-2:disabled { background: #4c1d95; }
@@ -118,6 +117,18 @@
 
         .ad-info .limit-status.completed {
             color: var(--green);
+        }
+
+        /* Loading shimmer effect */
+        .loading-shimmer {
+            background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         .rank-card { background:var(--card); border-radius:16px; padding:15px 20px; margin-top:20px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
@@ -315,6 +326,18 @@
         }
         .daily-reset strong {
             color: var(--gold);
+        }
+
+        /* Loading skeleton */
+        .skeleton-text {
+            height: 12px;
+            background: var(--border);
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
         }
     </style>
 </head>
@@ -528,6 +551,11 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // Enable offline persistence for faster loading
+        db.enablePersistence({ synchronizeTabs: true })
+            .then(() => console.log('Firestore persistence enabled'))
+            .catch((err) => console.log('Persistence error:', err));
+
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
@@ -543,8 +571,9 @@
         let historyFilter = 'all';
         let userAdsWatched = 0;
         let privateChatUnsubscribe = null;
+        let isDataLoaded = false;
 
-        // Ad tracking for each network (hidden from users)
+        // Ad tracking for each network
         let adCounts = {
             network1: 0,
             network2: 0,
@@ -553,14 +582,12 @@
 
         const AD_LIMIT = 150;
 
-        // Network mapping (hidden from users)
         const networkMapping = {
             network1: 'monetag',
             network2: 'adsterra',
             network3: 'hilltop'
         };
 
-        // Actual network configs (hidden from users)
         const adNetworks = {
             monetag: {
                 url: null,
@@ -582,7 +609,12 @@
         const timerInterval = setInterval(() => {
             countdown--;
             if (countdown >= 1) { timerDisplay.innerText = countdown; }
-            else { clearInterval(timerInterval); document.getElementById('introScreen').classList.add('hidden'); }
+            else { 
+                clearInterval(timerInterval); 
+                document.getElementById('introScreen').classList.add('hidden');
+                // Start loading user data after intro
+                initUser();
+            }
         }, 1000);
 
         const MIN_WITHDRAW = 2.00;
@@ -597,7 +629,6 @@
             const progress = `${count}/${AD_LIMIT}`;
             const isComplete = count >= AD_LIMIT;
 
-            // Map network key to button IDs
             const idMap = {
                 network1: { btn: 'adBtn1', progress: 'progress1', status: 'status1' },
                 network2: { btn: 'adBtn2', progress: 'progress2', status: 'status2' },
@@ -607,10 +638,8 @@
             const ids = idMap[networkKey];
             if (!ids) return;
 
-            // Update progress
             document.getElementById(ids.progress).textContent = progress;
 
-            // Update status
             const statusEl = document.getElementById(ids.status);
             if (isComplete) {
                 statusEl.textContent = '✅ Daily limit reached!';
@@ -620,7 +649,6 @@
                 statusEl.className = 'limit-status';
             }
 
-            // Update button state
             const btn = document.getElementById(ids.btn);
             if (isComplete) {
                 btn.disabled = true;
@@ -632,13 +660,17 @@
         }
 
         function watchAd(networkKey) {
+            if (!isDataLoaded) {
+                tg.showAlert("Please wait for the app to load...");
+                return;
+            }
+
             const count = adCounts[networkKey] || 0;
             if (count >= AD_LIMIT) {
                 tg.showAlert(`You've reached today's limit of ${AD_LIMIT} ads! Come back tomorrow.`);
                 return;
             }
 
-            // Get the actual network name
             const actualNetwork = networkMapping[networkKey];
             if (!actualNetwork) {
                 tg.showAlert("Ad not available. Please try again.");
@@ -661,47 +693,32 @@
             btn.disabled = true;
             btn.innerHTML = `⏳ Loading... <span class="progress">${count}/${AD_LIMIT}</span>`;
 
-            let adLoaded = false;
-
-            // Show the appropriate ad (hidden from user which network)
             if (network.type === 'sdk' && network.sdkFunction) {
                 try {
                     if (typeof window[network.sdkFunction] !== 'undefined') {
                         window[network.sdkFunction]();
-                        adLoaded = true;
                     } else {
-                        // Fallback to Adsterra
                         window.open(adNetworks.adsterra.url, '_blank');
-                        adLoaded = true;
                     }
                 } catch(e) {
-                    console.error('SDK error:', e);
                     window.open(adNetworks.adsterra.url, '_blank');
-                    adLoaded = true;
                 }
             } else if (network.type === 'direct' && network.url) {
                 window.open(network.url, '_blank');
-                adLoaded = true;
             } else {
-                // Fallback
                 try {
                     if (typeof show_11083093 !== 'undefined') {
                         show_11083093();
-                        adLoaded = true;
                     } else {
                         window.open(adNetworks.adsterra.url, '_blank');
-                        adLoaded = true;
                     }
                 } catch(e) {
                     window.open(adNetworks.adsterra.url, '_blank');
-                    adLoaded = true;
                 }
             }
 
-            // Credit user after ad view
             setTimeout(() => {
                 if (currentUserRef) {
-                    // Increment the specific network counter
                     adCounts[networkKey] = (adCounts[networkKey] || 0) + 1;
                     
                     currentUserRef.update({
@@ -711,9 +728,7 @@
                         [`ad_counts_last_reset.${networkKey}`]: getTodayDate()
                     }).then(() => { 
                         updateAdUI(networkKey);
-                        // Update total ads watched display
-                        const snap = currentUserRef.get();
-                        snap.then(doc => {
+                        currentUserRef.get().then(doc => {
                             if(doc.exists) {
                                 const data = doc.data();
                                 document.getElementById('adsWatchedDisplay').innerText = data.ads_watched || 0;
@@ -740,7 +755,16 @@
 
         async function initUser() {
             try {
-                const q = await db.collection("users").where("telegram_id", "==", telegramId).get();
+                // Set a timeout for Firebase operations
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Firebase timeout')), 10000)
+                );
+
+                const q = await Promise.race([
+                    db.collection("users").where("telegram_id", "==", telegramId).get(),
+                    timeoutPromise
+                ]);
+
                 let userData, isNewUser = false;
 
                 if (q.empty) {
@@ -768,16 +792,11 @@
                     currentUserId = q.docs[0].id; currentUserRef = db.collection("users").doc(currentUserId);
                     userData = q.docs[0].data(); myReferralCode = userData.referral_code;
                     
-                    // Check if reset is needed
                     const today = getTodayDate();
-                    let needsReset = false;
-                    
                     ['network1', 'network2', 'network3'].forEach(key => {
                         const lastReset = userData.ad_counts_last_reset?.[key] || '';
                         if (lastReset !== today) {
                             adCounts[key] = 0;
-                            needsReset = true;
-                            // Update Firestore reset date
                             currentUserRef.update({
                                 [`ad_counts.${key}`]: 0,
                                 [`ad_counts_last_reset.${key}`]: today
@@ -821,10 +840,11 @@
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
 
-                // Update all ad buttons
                 updateAdUI('network1');
                 updateAdUI('network2');
                 updateAdUI('network3');
+
+                isDataLoaded = true;
 
                 listenForUpdates(); 
                 loadRankings(); 
@@ -835,7 +855,19 @@
                 loadHistory();
             } catch(e) { 
                 console.error("Error initializing user:", e);
-                tg.showAlert("Error loading app. Please refresh.");
+                // Show a retry option
+                if (e.message === 'Firebase timeout') {
+                    tg.showAlert("Loading is taking longer than expected. Please check your internet connection and refresh.");
+                } else {
+                    tg.showAlert("Error loading app. Please refresh.");
+                }
+                // Show retry button
+                const btn = document.getElementById('watchAdBtn');
+                if (btn) {
+                    btn.innerText = "🔄 Retry";
+                    btn.disabled = false;
+                    btn.onclick = () => { location.reload(); };
+                }
             }
         }
 
@@ -851,7 +883,6 @@
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(userAdsWatched);
                     
-                    // Check reset
                     const today = getTodayDate();
                     ['network1', 'network2', 'network3'].forEach(key => {
                         const lastReset = d.ad_counts_last_reset?.[key] || '';
@@ -889,16 +920,20 @@
         }
 
         async function loadRankings() {
-            const snap = await db.collection("users").orderBy("ads_watched", "desc").limit(50).get();
-            let html = '', rank = 1;
-            snap.forEach(doc => {
-                const d = doc.data();
-                const isMe = doc.id === currentUserId;
-                if(isMe) document.getElementById('userRankDisplay').innerHTML = `#${rank} <span>Champion</span>`;
-                html += `<div class="rank-item ${isMe?'me':''}"><span class="pos">#${rank}</span><span class="name">${d.first_name||'Player'}</span><span class="rpts">${d.ads_watched||0}</span></div>`;
-                rank++;
-            });
-            document.getElementById('rankListContainer').innerHTML = html || '<div style="text-align:center; color:var(--sub);">No players yet.</div>';
+            try {
+                const snap = await db.collection("users").orderBy("ads_watched", "desc").limit(50).get();
+                let html = '', rank = 1;
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    const isMe = doc.id === currentUserId;
+                    if(isMe) document.getElementById('userRankDisplay').innerHTML = `#${rank} <span>Champion</span>`;
+                    html += `<div class="rank-item ${isMe?'me':''}"><span class="pos">#${rank}</span><span class="name">${d.first_name||'Player'}</span><span class="rpts">${d.ads_watched||0}</span></div>`;
+                    rank++;
+                });
+                document.getElementById('rankListContainer').innerHTML = html || '<div style="text-align:center; color:var(--sub);">No players yet.</div>';
+            } catch(e) {
+                console.error('Ranking load error:', e);
+            }
         }
 
         function copyReferralLink() {
@@ -1221,7 +1256,7 @@
                 });
         }
 
-        initUser();
+        // initUser() is now called after intro screen
     </script>
 </body>
 </html>
