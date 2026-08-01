@@ -196,7 +196,6 @@
             margin-bottom: 10px;
         }
 
-        /* Private chat container */
         #privateChatMessages {
             height: 240px;
             overflow-y: auto;
@@ -242,31 +241,6 @@
         .chat-box button:active {
             transform: scale(0.98);
         }
-
-        /* Ad network status indicator */
-        .ad-status {
-            font-size: 12px;
-            color: var(--sub);
-            text-align: center;
-            margin-top: 8px;
-            padding: 4px 10px;
-            background: var(--card);
-            border-radius: 20px;
-            display: inline-block;
-            border: 1px solid var(--border);
-        }
-        .ad-status .highlight {
-            color: var(--gold);
-            font-weight: 600;
-        }
-
-        /* CPM display */
-        .cpm-display {
-            font-size: 11px;
-            color: var(--sub);
-            text-align: center;
-            margin-top: 5px;
-        }
     </style>
 </head>
 <body>
@@ -307,10 +281,6 @@
             </div>
         </div>
         <button class="btn-watch" id="watchAdBtn" onclick="watchAd()">▶ Watch Ad & Earn</button>
-        <div style="text-align:center; margin-top:8px;">
-            <span class="ad-status" id="adNetworkStatus">📡 Using: <span class="highlight" id="currentNetworkDisplay">Monetag</span></span>
-            <div class="cpm-display" id="cpmDisplay">💰 Highest CPM: $0.00</div>
-        </div>
         <div class="rank-card">
             <div class="left">
                 <h4>Your Rank</h4>
@@ -471,12 +441,13 @@
 
         // ============================================
         // AD NETWORK CONFIGURATION WITH CPM VALUES
+        // (Hidden from users - no display elements)
         // ============================================
         const adNetworks = {
             monetag: {
                 name: 'Monetag',
-                url: null, // Monetag uses SDK
-                cpm: 0.85, // Example CPM value (adjust based on your actual earnings)
+                url: null,
+                cpm: 0.85,
                 sdkFunction: 'show_11083093',
                 enabled: true,
                 type: 'sdk'
@@ -484,38 +455,22 @@
             adsterra: {
                 name: 'Adsterra',
                 url: 'https://www.effectivecpmnetwork.com/r4giaq2x?key=1e2884940f37aa08d449fa0cca3b9189',
-                cpm: 1.20, // Example CPM - Adsterra usually has good rates
+                cpm: 1.20,
                 enabled: true,
                 type: 'direct'
             },
             hilltop: {
                 name: 'Hilltop',
                 url: 'https://elementarywhole.com/i0LPch',
-                cpm: 0.75, // Example CPM
+                cpm: 0.75,
                 enabled: true,
                 type: 'direct'
             }
         };
 
-        // Update CPM values dynamically from Firebase (optional)
-        function updateCPMValues() {
-            db.collection("admin_settings").doc("ad_cpm").onSnapshot(doc => {
-                if(doc.exists) {
-                    const data = doc.data();
-                    if(data.monetag) adNetworks.monetag.cpm = data.monetag;
-                    if(data.adsterra) adNetworks.adsterra.cpm = data.adsterra;
-                    if(data.hilltop) adNetworks.hilltop.cpm = data.hilltop;
-                    updateCPMDisplay();
-                }
-            }, (error) => {
-                console.log("Using default CPM values");
-            });
-        }
-
         function getBestAdNetwork() {
             let bestNetwork = null;
             let highestCPM = 0;
-            let networkName = 'none';
 
             for (const [key, network] of Object.entries(adNetworks)) {
                 if (network.enabled && network.cpm > highestCPM) {
@@ -527,67 +482,47 @@
             return bestNetwork;
         }
 
-        function updateCPMDisplay() {
-            const best = getBestAdNetwork();
-            if (best) {
-                document.getElementById('cpmDisplay').innerHTML = `💰 Highest CPM: <strong>$${best.cpm.toFixed(3)}</strong> (${best.name})`;
-                document.getElementById('currentNetworkDisplay').textContent = best.name;
-            } else {
-                document.getElementById('cpmDisplay').textContent = '💰 No ad networks available';
-            }
-        }
-
         // ============================================
         // WATCH AD FUNCTION WITH AUTO CPM SELECTION
+        // (No network info shown to users)
         // ============================================
         function watchAd() {
             const btn = document.getElementById('watchAdBtn');
             btn.disabled = true; 
-            btn.innerText = "🔄 Finding best ad network...";
+            btn.innerText = "Loading Ad...";
 
-            // Get the best network based on CPM
+            // Get the best network based on CPM (hidden from user)
             const bestNetwork = getBestAdNetwork();
             
             if (!bestNetwork) {
-                tg.showAlert("No ad networks available. Please try again later.");
+                tg.showAlert("Ad not available. Please try again later.");
                 btn.disabled = false; 
                 btn.innerText = "▶ Watch Ad & Earn";
                 return;
             }
 
-            // Update display
-            document.getElementById('currentNetworkDisplay').textContent = bestNetwork.name;
-            document.getElementById('cpmDisplay').innerHTML = `💰 CPM: <strong>$${bestNetwork.cpm.toFixed(3)}</strong> (${bestNetwork.name})`;
-
-            btn.innerText = `▶ Loading ${bestNetwork.name}...`;
-
             let adLoaded = false;
 
-            // Show the appropriate ad
+            // Show the appropriate ad (no indication of which network)
             if (bestNetwork.type === 'sdk' && bestNetwork.sdkFunction) {
-                // Monetag SDK
                 try {
                     if (typeof window[bestNetwork.sdkFunction] !== 'undefined') {
                         window[bestNetwork.sdkFunction]();
                         adLoaded = true;
                     } else {
-                        console.warn('Monetag SDK not available, falling back to Adsterra');
-                        // Fallback to Adsterra if Monetag SDK fails
+                        // Fallback to Adsterra if Monetag fails
                         window.open(adNetworks.adsterra.url, '_blank');
                         adLoaded = true;
                     }
                 } catch(e) {
-                    console.error('SDK error:', e);
-                    // Fallback to Adsterra
                     window.open(adNetworks.adsterra.url, '_blank');
                     adLoaded = true;
                 }
             } else if (bestNetwork.type === 'direct' && bestNetwork.url) {
-                // Direct link ad
                 window.open(bestNetwork.url, '_blank');
                 adLoaded = true;
             } else {
-                // Fallback: try Monetag SDK first, then Adsterra
+                // Fallback: try Monetag SDK then Adsterra
                 try {
                     if (typeof show_11083093 !== 'undefined') {
                         show_11083093();
@@ -602,7 +537,7 @@
                 }
             }
 
-            // Credit user after ad view (with a delay to simulate watching)
+            // Credit user after ad view
             setTimeout(() => {
                 if (currentUserRef) {
                     currentUserRef.update({
@@ -611,8 +546,6 @@
                     }).then(() => { 
                         btn.disabled = false; 
                         btn.innerText = "▶ Watch Ad & Earn";
-                        // Update the network status with highest CPM again
-                        updateCPMDisplay();
                     }).catch((e) => {
                         console.error('Error updating user:', e);
                         btn.disabled = false; 
@@ -682,11 +615,6 @@
                 document.getElementById('totalRefs').innerText = userData.referrals||0;
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
-
-                // Initialize CPM display
-                updateCPMDisplay();
-                // Listen for CPM updates
-                updateCPMValues();
 
                 listenForUpdates(); 
                 loadRankings(); 
@@ -944,7 +872,6 @@
                 });
         }
 
-        // --- PRIVATE CHAT WITH ADMIN ---
         function sendMessageToAdmin() {
             const input = document.getElementById('adminMessageInput');
             const m = input.value.trim();
@@ -1067,7 +994,6 @@
                 });
         }
 
-        // Initialize everything
         initUser();
     </script>
 </body>
