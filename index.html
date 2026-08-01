@@ -89,10 +89,6 @@
             border-radius: 20px;
         }
 
-        .ad-button .check-mark {
-            font-size: 18px;
-        }
-
         .btn-color-1 { background: #3b82f6; }
         .btn-color-2 { background: #8b5cf6; }
         .btn-color-3 { background: #ec4899; }
@@ -117,18 +113,6 @@
 
         .ad-info .limit-status.completed {
             color: var(--green);
-        }
-
-        /* Loading shimmer effect */
-        .loading-shimmer {
-            background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 8px;
-        }
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
         }
 
         .rank-card { background:var(--card); border-radius:16px; padding:15px 20px; margin-top:20px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
@@ -327,18 +311,6 @@
         .daily-reset strong {
             color: var(--gold);
         }
-
-        /* Loading skeleton */
-        .skeleton-text {
-            height: 12px;
-            background: var(--border);
-            border-radius: 4px;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-        }
     </style>
 </head>
 <body>
@@ -385,7 +357,7 @@
 
         <!-- THREE DIFFERENT COLORED AD BUTTONS -->
         <div class="ad-button-group">
-            <!-- Button 1 - Blue -->
+            <!-- Button 1 - Blue (Monetag) -->
             <div>
                 <button class="ad-button btn-color-1" id="adBtn1" onclick="watchAd('network1')">
                     ▶ Watch Ad
@@ -396,7 +368,7 @@
                 </div>
             </div>
 
-            <!-- Button 2 - Purple -->
+            <!-- Button 2 - Purple (Adsterra) -->
             <div>
                 <button class="ad-button btn-color-2" id="adBtn2" onclick="watchAd('network2')">
                     ▶ Watch Ad
@@ -407,7 +379,7 @@
                 </div>
             </div>
 
-            <!-- Button 3 - Pink -->
+            <!-- Button 3 - Pink (Hilltop) -->
             <div>
                 <button class="ad-button btn-color-3" id="adBtn3" onclick="watchAd('network3')">
                     ▶ Watch Ad
@@ -551,11 +523,6 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Enable offline persistence for faster loading
-        db.enablePersistence({ synchronizeTabs: true })
-            .then(() => console.log('Firestore persistence enabled'))
-            .catch((err) => console.log('Persistence error:', err));
-
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
@@ -571,7 +538,6 @@
         let historyFilter = 'all';
         let userAdsWatched = 0;
         let privateChatUnsubscribe = null;
-        let isDataLoaded = false;
 
         // Ad tracking for each network
         let adCounts = {
@@ -612,7 +578,6 @@
             else { 
                 clearInterval(timerInterval); 
                 document.getElementById('introScreen').classList.add('hidden');
-                // Start loading user data after intro
                 initUser();
             }
         }, 1000);
@@ -624,6 +589,8 @@
         }
 
         function updateAdUI(networkKey) {
+            console.log('Updating UI for:', networkKey, 'Count:', adCounts[networkKey]);
+            
             const count = adCounts[networkKey] || 0;
             const remaining = AD_LIMIT - count;
             const progress = `${count}/${AD_LIMIT}`;
@@ -636,36 +603,47 @@
             };
 
             const ids = idMap[networkKey];
-            if (!ids) return;
-
-            document.getElementById(ids.progress).textContent = progress;
-
-            const statusEl = document.getElementById(ids.status);
-            if (isComplete) {
-                statusEl.textContent = '✅ Daily limit reached!';
-                statusEl.className = 'limit-status completed';
-            } else {
-                statusEl.textContent = `${remaining} ads remaining`;
-                statusEl.className = 'limit-status';
+            if (!ids) {
+                console.error('Invalid network key:', networkKey);
+                return;
             }
 
+            // Update progress
+            const progressEl = document.getElementById(ids.progress);
+            if (progressEl) {
+                progressEl.textContent = progress;
+            }
+
+            // Update status
+            const statusEl = document.getElementById(ids.status);
+            if (statusEl) {
+                if (isComplete) {
+                    statusEl.textContent = '✅ Daily limit reached!';
+                    statusEl.className = 'limit-status completed';
+                } else {
+                    statusEl.textContent = `${remaining} ads remaining`;
+                    statusEl.className = 'limit-status';
+                }
+            }
+
+            // Update button state
             const btn = document.getElementById(ids.btn);
-            if (isComplete) {
-                btn.disabled = true;
-                btn.innerHTML = `✅ Completed <span class="progress">${progress}</span>`;
-            } else {
-                btn.disabled = false;
-                btn.innerHTML = `▶ Watch Ad <span class="progress">${progress}</span>`;
+            if (btn) {
+                if (isComplete) {
+                    btn.disabled = true;
+                    btn.innerHTML = `✅ Completed <span class="progress">${progress}</span>`;
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = `▶ Watch Ad <span class="progress">${progress}</span>`;
+                }
             }
         }
 
         function watchAd(networkKey) {
-            if (!isDataLoaded) {
-                tg.showAlert("Please wait for the app to load...");
-                return;
-            }
-
             const count = adCounts[networkKey] || 0;
+            
+            console.log('Watch Ad clicked:', networkKey, 'Current count:', count);
+            
             if (count >= AD_LIMIT) {
                 tg.showAlert(`You've reached today's limit of ${AD_LIMIT} ads! Come back tomorrow.`);
                 return;
@@ -693,6 +671,7 @@
             btn.disabled = true;
             btn.innerHTML = `⏳ Loading... <span class="progress">${count}/${AD_LIMIT}</span>`;
 
+            // Show the ad
             if (network.type === 'sdk' && network.sdkFunction) {
                 try {
                     if (typeof window[network.sdkFunction] !== 'undefined') {
@@ -717,17 +696,28 @@
                 }
             }
 
+            // Credit user after ad view
             setTimeout(() => {
                 if (currentUserRef) {
+                    // Increment local count
                     adCounts[networkKey] = (adCounts[networkKey] || 0) + 1;
                     
+                    // Log the update
+                    console.log('Updating Firestore for:', networkKey, 'New count:', adCounts[networkKey]);
+                    
+                    // Update Firestore
                     currentUserRef.update({
                         points_balance: firebase.firestore.FieldValue.increment(10),
                         ads_watched: firebase.firestore.FieldValue.increment(1),
                         [`ad_counts.${networkKey}`]: firebase.firestore.FieldValue.increment(1),
                         [`ad_counts_last_reset.${networkKey}`]: getTodayDate()
-                    }).then(() => { 
+                    }).then(() => {
+                        console.log('Firestore update successful for:', networkKey);
+                        
+                        // Update UI immediately
                         updateAdUI(networkKey);
+                        
+                        // Update total ads and balance
                         currentUserRef.get().then(doc => {
                             if(doc.exists) {
                                 const data = doc.data();
@@ -739,8 +729,11 @@
                         });
                     }).catch((e) => {
                         console.error('Error updating user:', e);
+                        // Revert local count if Firestore fails
+                        adCounts[networkKey] = (adCounts[networkKey] || 0) - 1;
                         btn.disabled = false;
                         updateAdUI(networkKey);
+                        tg.showAlert('Error recording ad. Please try again.');
                     });
                 } else {
                     btn.disabled = false;
@@ -755,16 +748,7 @@
 
         async function initUser() {
             try {
-                // Set a timeout for Firebase operations
-                const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Firebase timeout')), 10000)
-                );
-
-                const q = await Promise.race([
-                    db.collection("users").where("telegram_id", "==", telegramId).get(),
-                    timeoutPromise
-                ]);
-
+                const q = await db.collection("users").where("telegram_id", "==", telegramId).get();
                 let userData, isNewUser = false;
 
                 if (q.empty) {
@@ -788,11 +772,20 @@
                     };
                     const doc = await db.collection("users").add(newUser);
                     currentUserId = doc.id; currentUserRef = doc; userData = newUser;
+                    
+                    // Initialize ad counts for new user
+                    adCounts.network1 = 0;
+                    adCounts.network2 = 0;
+                    adCounts.network3 = 0;
                 } else {
-                    currentUserId = q.docs[0].id; currentUserRef = db.collection("users").doc(currentUserId);
-                    userData = q.docs[0].data(); myReferralCode = userData.referral_code;
+                    currentUserId = q.docs[0].id; 
+                    currentUserRef = db.collection("users").doc(currentUserId);
+                    userData = q.docs[0].data(); 
+                    myReferralCode = userData.referral_code;
                     
                     const today = getTodayDate();
+                    
+                    // Check and reset if needed for each network
                     ['network1', 'network2', 'network3'].forEach(key => {
                         const lastReset = userData.ad_counts_last_reset?.[key] || '';
                         if (lastReset !== today) {
@@ -828,6 +821,7 @@
                 userAdsWatched = userData.ads_watched || 0;
                 const balance = calculateBalance(userAdsWatched);
                 
+                // Update UI
                 document.getElementById('userName').innerText = userName;
                 document.getElementById('userIdDisplay').innerText = `ID: ${telegramId}`;
                 document.getElementById('profileName').innerText = userName;
@@ -840,11 +834,11 @@
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
 
+                // Update all ad buttons
+                console.log('Initializing UI with counts:', adCounts);
                 updateAdUI('network1');
                 updateAdUI('network2');
                 updateAdUI('network3');
-
-                isDataLoaded = true;
 
                 listenForUpdates(); 
                 loadRankings(); 
@@ -855,27 +849,19 @@
                 loadHistory();
             } catch(e) { 
                 console.error("Error initializing user:", e);
-                // Show a retry option
-                if (e.message === 'Firebase timeout') {
-                    tg.showAlert("Loading is taking longer than expected. Please check your internet connection and refresh.");
-                } else {
-                    tg.showAlert("Error loading app. Please refresh.");
-                }
-                // Show retry button
-                const btn = document.getElementById('watchAdBtn');
-                if (btn) {
-                    btn.innerText = "🔄 Retry";
-                    btn.disabled = false;
-                    btn.onclick = () => { location.reload(); };
-                }
+                tg.showAlert("Error loading app. Please refresh.");
             }
         }
 
         function listenForUpdates() {
             if(!currentUserRef) return;
+            
+            // Listen for real-time updates from Firestore
             currentUserRef.onSnapshot(doc => {
                 if(doc.exists) {
                     const d = doc.data();
+                    console.log('Firestore update received:', d);
+                    
                     userAdsWatched = d.ads_watched || 0;
                     const balance = calculateBalance(userAdsWatched);
                     document.getElementById('adsWatchedDisplay').innerText = userAdsWatched;
@@ -883,6 +869,7 @@
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(userAdsWatched);
                     
+                    // Update ad counts from Firestore
                     const today = getTodayDate();
                     ['network1', 'network2', 'network3'].forEach(key => {
                         const lastReset = d.ad_counts_last_reset?.[key] || '';
@@ -902,6 +889,8 @@
                     loadReferrals(); 
                     loadHistory();
                 }
+            }, (error) => {
+                console.error('Firestore listener error:', error);
             });
         }
 
@@ -1255,8 +1244,6 @@
                     container.scrollTop = container.scrollHeight;
                 });
         }
-
-        // initUser() is now called after intro screen
     </script>
 </body>
 </html>
