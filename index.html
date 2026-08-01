@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
-        :root { --bg: #060b18; --card: #0b1529; --border: #1e293b; --text: #ffffff; --sub: #94a3b8; --gold: #fbbf24; --green: #22c55e; --blue: #3b82f6; --red: #ef4444; }
+        :root { --bg: #060b18; --card: #0b1529; --border: #1e293b; --text: #ffffff; --sub: #94a3b8; --gold: #fbbf24; --green: #22c55e; --blue: #3b82f6; --red: #ef4444; --purple: #8b5cf6; --orange: #f59e0b; --pink: #ec4899; }
         .light-theme { --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --sub: #64748b; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
         body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; overflow-x: hidden; }
@@ -55,9 +55,70 @@
         .stat-box .num.gold-text { color:var(--gold); }
         .stat-box .label { font-size:12px; color:var(--sub); margin-top:5px; display:block; }
 
-        .btn-watch { width:100%; background:var(--green); color:#fff; border:none; padding:16px; border-radius:50px; font-size:16px; font-weight:700; cursor:pointer; transition:0.2s; display:flex; justify-content:center; align-items:center; gap:10px; }
-        .btn-watch:active { transform:scale(0.98); }
-        .btn-watch:disabled { background:#4b5563; cursor:not-allowed; }
+        .ad-button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .ad-button {
+            width: 100%;
+            border: none;
+            padding: 16px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+        }
+        .ad-button:active { transform: scale(0.98); }
+        .ad-button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .ad-button .progress {
+            font-size: 13px;
+            font-weight: 400;
+            opacity: 0.9;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 12px;
+            border-radius: 20px;
+        }
+
+        .ad-button .check-mark {
+            font-size: 18px;
+        }
+
+        /* Different colors for each button */
+        .btn-color-1 { background: #3b82f6; } /* Blue */
+        .btn-color-2 { background: #8b5cf6; } /* Purple */
+        .btn-color-3 { background: #ec4899; } /* Pink */
+
+        .btn-color-1:disabled { background: #1e3a5f; }
+        .btn-color-2:disabled { background: #4c1d95; }
+        .btn-color-3:disabled { background: #831843; }
+
+        .ad-info {
+            display: flex;
+            justify-content: flex-end;
+            font-size: 12px;
+            color: var(--sub);
+            margin-top: 4px;
+            padding: 0 5px;
+        }
+
+        .ad-info .limit-status {
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        .ad-info .limit-status.completed {
+            color: var(--green);
+        }
 
         .rank-card { background:var(--card); border-radius:16px; padding:15px 20px; margin-top:20px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
         .rank-card .left h4 { color:var(--sub); font-size:13px; font-weight:400; }
@@ -241,6 +302,20 @@
         .chat-box button:active {
             transform: scale(0.98);
         }
+
+        .daily-reset {
+            font-size: 11px;
+            color: var(--sub);
+            text-align: center;
+            padding: 8px;
+            background: var(--card);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 15px;
+        }
+        .daily-reset strong {
+            color: var(--gold);
+        }
     </style>
 </head>
 <body>
@@ -272,7 +347,7 @@
             <div class="stat-box">
                 <div class="icon-circle blue">👁️</div>
                 <span class="num" id="adsWatchedDisplay">0</span>
-                <span class="label">Ads Watched</span>
+                <span class="label">Total Ads Watched</span>
             </div>
             <div class="stat-box">
                 <div class="icon-circle gold">💰</div>
@@ -280,7 +355,47 @@
                 <span class="label">Your Balance</span>
             </div>
         </div>
-        <button class="btn-watch" id="watchAdBtn" onclick="watchAd()">▶ Watch Ad & Earn</button>
+
+        <div class="daily-reset">
+            ⏰ Daily limit: <strong>150 ads per button</strong> | Resets at midnight
+        </div>
+
+        <!-- THREE DIFFERENT COLORED AD BUTTONS -->
+        <div class="ad-button-group">
+            <!-- Button 1 - Blue -->
+            <div>
+                <button class="ad-button btn-color-1" id="adBtn1" onclick="watchAd('network1')">
+                    ▶ Watch Ad
+                    <span class="progress" id="progress1">0/150</span>
+                </button>
+                <div class="ad-info">
+                    <span class="limit-status" id="status1">150 ads remaining</span>
+                </div>
+            </div>
+
+            <!-- Button 2 - Purple -->
+            <div>
+                <button class="ad-button btn-color-2" id="adBtn2" onclick="watchAd('network2')">
+                    ▶ Watch Ad
+                    <span class="progress" id="progress2">0/150</span>
+                </button>
+                <div class="ad-info">
+                    <span class="limit-status" id="status2">150 ads remaining</span>
+                </div>
+            </div>
+
+            <!-- Button 3 - Pink -->
+            <div>
+                <button class="ad-button btn-color-3" id="adBtn3" onclick="watchAd('network3')">
+                    ▶ Watch Ad
+                    <span class="progress" id="progress3">0/150</span>
+                </button>
+                <div class="ad-info">
+                    <span class="limit-status" id="status3">150 ads remaining</span>
+                </div>
+            </div>
+        </div>
+
         <div class="rank-card">
             <div class="left">
                 <h4>Your Rank</h4>
@@ -364,7 +479,7 @@
         </div>
     </div>
 
-    <!-- PROFILE / PRIVATE CHAT (FIXED) -->
+    <!-- PROFILE / PRIVATE CHAT -->
     <div id="profilePage" class="page">
         <div class="profile-page">
             <img id="profileAvatar" class="avatar" src="" alt="Avatar">
@@ -429,6 +544,39 @@
         let userAdsWatched = 0;
         let privateChatUnsubscribe = null;
 
+        // Ad tracking for each network (hidden from users)
+        let adCounts = {
+            network1: 0,
+            network2: 0,
+            network3: 0
+        };
+
+        const AD_LIMIT = 150;
+
+        // Network mapping (hidden from users)
+        const networkMapping = {
+            network1: 'monetag',
+            network2: 'adsterra',
+            network3: 'hilltop'
+        };
+
+        // Actual network configs (hidden from users)
+        const adNetworks = {
+            monetag: {
+                url: null,
+                sdkFunction: 'show_11083093',
+                type: 'sdk'
+            },
+            adsterra: {
+                url: 'https://www.effectivecpmnetwork.com/f1ixzpesc?key=8ced235b734f9cc444ae77cc3b8f6147',
+                type: 'direct'
+            },
+            hilltop: {
+                url: 'https://elementarywhole.com/i0LPch',
+                type: 'direct'
+            }
+        };
+
         let countdown = 3;
         const timerDisplay = document.getElementById('timerDisplay');
         const timerInterval = setInterval(() => {
@@ -439,90 +587,103 @@
 
         const MIN_WITHDRAW = 2.00;
 
-        // ============================================
-        // AD NETWORK CONFIGURATION WITH CPM VALUES
-        // (Hidden from users - no display elements)
-        // ============================================
-        const adNetworks = {
-            monetag: {
-                name: 'Monetag',
-                url: null,
-                cpm: 0.85,
-                sdkFunction: 'show_11083093',
-                enabled: true,
-                type: 'sdk'
-            },
-            adsterra: {
-                name: 'Adsterra',
-                url: 'https://www.effectivecpmnetwork.com/f1ixzpesc?key=8ced235b734f9cc444ae77cc3b8f6147',
-                cpm: 1.20,
-                enabled: true,
-                type: 'direct'
-            },
-            hilltop: {
-                name: 'Hilltop',
-                url: 'https://elementarywhole.com/i0LPch',
-                cpm: 0.75,
-                enabled: true,
-                type: 'direct'
-            }
-        };
-
-        function getBestAdNetwork() {
-            let bestNetwork = null;
-            let highestCPM = 0;
-
-            for (const [key, network] of Object.entries(adNetworks)) {
-                if (network.enabled && network.cpm > highestCPM) {
-                    highestCPM = network.cpm;
-                    bestNetwork = { ...network, key: key };
-                }
-            }
-
-            return bestNetwork;
+        function getTodayDate() {
+            return new Date().toDateString();
         }
 
-        // ============================================
-        // WATCH AD FUNCTION WITH AUTO CPM SELECTION
-        // (No network info shown to users)
-        // ============================================
-        function watchAd() {
-            const btn = document.getElementById('watchAdBtn');
-            btn.disabled = true; 
-            btn.innerText = "Loading Ad...";
+        function updateAdUI(networkKey) {
+            const count = adCounts[networkKey] || 0;
+            const remaining = AD_LIMIT - count;
+            const progress = `${count}/${AD_LIMIT}`;
+            const isComplete = count >= AD_LIMIT;
 
-            // Get the best network based on CPM (hidden from user)
-            const bestNetwork = getBestAdNetwork();
-            
-            if (!bestNetwork) {
-                tg.showAlert("Ad not available. Please try again later.");
-                btn.disabled = false; 
-                btn.innerText = "▶ Watch Ad & Earn";
+            // Map network key to button IDs
+            const idMap = {
+                network1: { btn: 'adBtn1', progress: 'progress1', status: 'status1' },
+                network2: { btn: 'adBtn2', progress: 'progress2', status: 'status2' },
+                network3: { btn: 'adBtn3', progress: 'progress3', status: 'status3' }
+            };
+
+            const ids = idMap[networkKey];
+            if (!ids) return;
+
+            // Update progress
+            document.getElementById(ids.progress).textContent = progress;
+
+            // Update status
+            const statusEl = document.getElementById(ids.status);
+            if (isComplete) {
+                statusEl.textContent = '✅ Daily limit reached!';
+                statusEl.className = 'limit-status completed';
+            } else {
+                statusEl.textContent = `${remaining} ads remaining`;
+                statusEl.className = 'limit-status';
+            }
+
+            // Update button state
+            const btn = document.getElementById(ids.btn);
+            if (isComplete) {
+                btn.disabled = true;
+                btn.innerHTML = `✅ Completed <span class="progress">${progress}</span>`;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = `▶ Watch Ad <span class="progress">${progress}</span>`;
+            }
+        }
+
+        function watchAd(networkKey) {
+            const count = adCounts[networkKey] || 0;
+            if (count >= AD_LIMIT) {
+                tg.showAlert(`You've reached today's limit of ${AD_LIMIT} ads! Come back tomorrow.`);
                 return;
             }
 
+            // Get the actual network name
+            const actualNetwork = networkMapping[networkKey];
+            if (!actualNetwork) {
+                tg.showAlert("Ad not available. Please try again.");
+                return;
+            }
+
+            const network = adNetworks[actualNetwork];
+            if (!network) {
+                tg.showAlert("Ad not available. Please try again.");
+                return;
+            }
+
+            const idMap = {
+                network1: 'adBtn1',
+                network2: 'adBtn2',
+                network3: 'adBtn3'
+            };
+
+            const btn = document.getElementById(idMap[networkKey]);
+            btn.disabled = true;
+            btn.innerHTML = `⏳ Loading... <span class="progress">${count}/${AD_LIMIT}</span>`;
+
             let adLoaded = false;
 
-            // Show the appropriate ad (no indication of which network)
-            if (bestNetwork.type === 'sdk' && bestNetwork.sdkFunction) {
+            // Show the appropriate ad (hidden from user which network)
+            if (network.type === 'sdk' && network.sdkFunction) {
                 try {
-                    if (typeof window[bestNetwork.sdkFunction] !== 'undefined') {
-                        window[bestNetwork.sdkFunction]();
+                    if (typeof window[network.sdkFunction] !== 'undefined') {
+                        window[network.sdkFunction]();
                         adLoaded = true;
                     } else {
-                        // Fallback to Adsterra if Monetag fails
+                        // Fallback to Adsterra
                         window.open(adNetworks.adsterra.url, '_blank');
                         adLoaded = true;
                     }
                 } catch(e) {
+                    console.error('SDK error:', e);
                     window.open(adNetworks.adsterra.url, '_blank');
                     adLoaded = true;
                 }
-            } else if (bestNetwork.type === 'direct' && bestNetwork.url) {
-                window.open(bestNetwork.url, '_blank');
+            } else if (network.type === 'direct' && network.url) {
+                window.open(network.url, '_blank');
                 adLoaded = true;
             } else {
-                // Fallback: try Monetag SDK then Adsterra
+                // Fallback
                 try {
                     if (typeof show_11083093 !== 'undefined') {
                         show_11083093();
@@ -540,20 +701,35 @@
             // Credit user after ad view
             setTimeout(() => {
                 if (currentUserRef) {
+                    // Increment the specific network counter
+                    adCounts[networkKey] = (adCounts[networkKey] || 0) + 1;
+                    
                     currentUserRef.update({
                         points_balance: firebase.firestore.FieldValue.increment(10),
-                        ads_watched: firebase.firestore.FieldValue.increment(1)
+                        ads_watched: firebase.firestore.FieldValue.increment(1),
+                        [`ad_counts.${networkKey}`]: firebase.firestore.FieldValue.increment(1),
+                        [`ad_counts_last_reset.${networkKey}`]: getTodayDate()
                     }).then(() => { 
-                        btn.disabled = false; 
-                        btn.innerText = "▶ Watch Ad & Earn";
+                        updateAdUI(networkKey);
+                        // Update total ads watched display
+                        const snap = currentUserRef.get();
+                        snap.then(doc => {
+                            if(doc.exists) {
+                                const data = doc.data();
+                                document.getElementById('adsWatchedDisplay').innerText = data.ads_watched || 0;
+                                const balance = calculateBalance(data.ads_watched || 0);
+                                document.getElementById('homeBalanceDisplay').innerText = `$${balance.toFixed(2)}`;
+                                calculateUSD(data.ads_watched || 0);
+                            }
+                        });
                     }).catch((e) => {
                         console.error('Error updating user:', e);
-                        btn.disabled = false; 
-                        btn.innerText = "▶ Watch Ad & Earn";
+                        btn.disabled = false;
+                        updateAdUI(networkKey);
                     });
                 } else {
-                    btn.disabled = false; 
-                    btn.innerText = "▶ Watch Ad & Earn";
+                    btn.disabled = false;
+                    updateAdUI(networkKey);
                 }
             }, 3000);
         }
@@ -574,13 +750,42 @@
                         telegram_id: telegramId, first_name: userName, avatar_url: userAvatar,
                         points_balance: 0, ads_watched: 0, referrals: 0, ref_earnings: 0,
                         referral_code: myReferralCode, referred_by: null,
-                        total_withdrawn: 0
+                        total_withdrawn: 0,
+                        ad_counts: {
+                            network1: 0,
+                            network2: 0,
+                            network3: 0
+                        },
+                        ad_counts_last_reset: {
+                            network1: getTodayDate(),
+                            network2: getTodayDate(),
+                            network3: getTodayDate()
+                        }
                     };
                     const doc = await db.collection("users").add(newUser);
                     currentUserId = doc.id; currentUserRef = doc; userData = newUser;
                 } else {
                     currentUserId = q.docs[0].id; currentUserRef = db.collection("users").doc(currentUserId);
                     userData = q.docs[0].data(); myReferralCode = userData.referral_code;
+                    
+                    // Check if reset is needed
+                    const today = getTodayDate();
+                    let needsReset = false;
+                    
+                    ['network1', 'network2', 'network3'].forEach(key => {
+                        const lastReset = userData.ad_counts_last_reset?.[key] || '';
+                        if (lastReset !== today) {
+                            adCounts[key] = 0;
+                            needsReset = true;
+                            // Update Firestore reset date
+                            currentUserRef.update({
+                                [`ad_counts.${key}`]: 0,
+                                [`ad_counts_last_reset.${key}`]: today
+                            }).catch(e => console.error('Reset error:', e));
+                        } else {
+                            adCounts[key] = userData.ad_counts?.[key] || 0;
+                        }
+                    });
                 }
 
                 if (isNewUser && referralCodeFromUrl) {
@@ -616,6 +821,11 @@
                 document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
                 calculateUSD(userAdsWatched);
 
+                // Update all ad buttons
+                updateAdUI('network1');
+                updateAdUI('network2');
+                updateAdUI('network3');
+
                 listenForUpdates(); 
                 loadRankings(); 
                 loadNews(); 
@@ -640,6 +850,23 @@
                     document.getElementById('homeBalanceDisplay').innerText = `$${balance.toFixed(2)}`;
                     document.getElementById('totalRefs').innerText = d.referrals||0;
                     calculateUSD(userAdsWatched);
+                    
+                    // Check reset
+                    const today = getTodayDate();
+                    ['network1', 'network2', 'network3'].forEach(key => {
+                        const lastReset = d.ad_counts_last_reset?.[key] || '';
+                        if (lastReset !== today) {
+                            adCounts[key] = 0;
+                            currentUserRef.update({
+                                [`ad_counts.${key}`]: 0,
+                                [`ad_counts_last_reset.${key}`]: today
+                            }).catch(e => console.error('Reset error:', e));
+                        } else {
+                            adCounts[key] = d.ad_counts?.[key] || 0;
+                        }
+                        updateAdUI(key);
+                    });
+                    
                     loadRankings(); 
                     loadReferrals(); 
                     loadHistory();
