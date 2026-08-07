@@ -357,7 +357,7 @@
 
         <!-- THREE DIFFERENT COLORED AD BUTTONS -->
         <div class="ad-button-group">
-            <!-- Button 1 - Blue (Monetag) -->
+            <!-- Button 1 - Blue (Monetag SDK) -->
             <div>
                 <button class="ad-button btn-color-1" id="adBtn1" onclick="watchAd('network1')">
                     ▶ Watch Ad
@@ -379,7 +379,7 @@
                 </div>
             </div>
 
-            <!-- Button 3 - Pink (Hilltop) -->
+            <!-- Button 3 - Pink (Monetag Direct Link) -->
             <div>
                 <button class="ad-button btn-color-3" id="adBtn3" onclick="watchAd('network3')">
                     ▶ Watch Ad
@@ -548,14 +548,16 @@
 
         const AD_LIMIT = 150;
 
+        // Network mapping (hidden from users)
         const networkMapping = {
-            network1: 'monetag',
+            network1: 'monetag_sdk',
             network2: 'adsterra',
-            network3: 'hilltop'
+            network3: 'monetag_direct'
         };
 
+        // Actual network configs (hidden from users)
         const adNetworks = {
-            monetag: {
+            monetag_sdk: {
                 url: null,
                 sdkFunction: 'show_11083093',
                 type: 'sdk'
@@ -564,8 +566,8 @@
                 url: 'https://www.effectivecpmnetwork.com/f1ixzpesc?key=8ced235b734f9cc444ae77cc3b8f6147',
                 type: 'direct'
             },
-            hilltop: {
-                url: 'https://elementarywhole.com/i0LPch',
+            monetag_direct: {
+                url: 'https://omg10.com/4/11050356',
                 type: 'direct'
             }
         };
@@ -589,8 +591,6 @@
         }
 
         function updateAdUI(networkKey) {
-            console.log('Updating UI for:', networkKey, 'Count:', adCounts[networkKey]);
-            
             const count = adCounts[networkKey] || 0;
             const remaining = AD_LIMIT - count;
             const progress = `${count}/${AD_LIMIT}`;
@@ -603,10 +603,7 @@
             };
 
             const ids = idMap[networkKey];
-            if (!ids) {
-                console.error('Invalid network key:', networkKey);
-                return;
-            }
+            if (!ids) return;
 
             // Update progress
             const progressEl = document.getElementById(ids.progress);
@@ -641,8 +638,6 @@
 
         function watchAd(networkKey) {
             const count = adCounts[networkKey] || 0;
-            
-            console.log('Watch Ad clicked:', networkKey, 'Current count:', count);
             
             if (count >= AD_LIMIT) {
                 tg.showAlert(`You've reached today's limit of ${AD_LIMIT} ads! Come back tomorrow.`);
@@ -702,9 +697,6 @@
                     // Increment local count
                     adCounts[networkKey] = (adCounts[networkKey] || 0) + 1;
                     
-                    // Log the update
-                    console.log('Updating Firestore for:', networkKey, 'New count:', adCounts[networkKey]);
-                    
                     // Update Firestore
                     currentUserRef.update({
                         points_balance: firebase.firestore.FieldValue.increment(10),
@@ -712,8 +704,6 @@
                         [`ad_counts.${networkKey}`]: firebase.firestore.FieldValue.increment(1),
                         [`ad_counts_last_reset.${networkKey}`]: getTodayDate()
                     }).then(() => {
-                        console.log('Firestore update successful for:', networkKey);
-                        
                         // Update UI immediately
                         updateAdUI(networkKey);
                         
@@ -835,7 +825,6 @@
                 calculateUSD(userAdsWatched);
 
                 // Update all ad buttons
-                console.log('Initializing UI with counts:', adCounts);
                 updateAdUI('network1');
                 updateAdUI('network2');
                 updateAdUI('network3');
@@ -856,11 +845,9 @@
         function listenForUpdates() {
             if(!currentUserRef) return;
             
-            // Listen for real-time updates from Firestore
             currentUserRef.onSnapshot(doc => {
                 if(doc.exists) {
                     const d = doc.data();
-                    console.log('Firestore update received:', d);
                     
                     userAdsWatched = d.ads_watched || 0;
                     const balance = calculateBalance(userAdsWatched);
