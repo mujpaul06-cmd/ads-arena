@@ -1050,7 +1050,15 @@
         // USER DATA
         // ============================================
         const urlParams = new URLSearchParams(window.location.search);
-        const referralCodeFromUrl = urlParams.get('start');
+
+        // Telegram passes Mini App deep-link data in initDataUnsafe.start_param.
+        // Also support startapp/start URL parameters for compatibility.
+        const telegramStartParam = tg.initDataUnsafe?.start_param || null;
+        const referralCodeFromUrl =
+            telegramStartParam ||
+            urlParams.get('startapp') ||
+            urlParams.get('start') ||
+            null;
 
         const tgUser = tg.initDataUnsafe?.user || { 
             id: "demo_"+Date.now(), 
@@ -1246,12 +1254,29 @@
                 if (currentUserRef) {
                     adCounts[networkKey] = (adCounts[networkKey] || 0) + 1;
                     
-                    currentUserRef.update({
+                    const adUpdate = {
                         points_balance: firebase.firestore.FieldValue.increment(10),
                         ads_watched: firebase.firestore.FieldValue.increment(1),
                         [`ad_counts.${networkKey}`]: firebase.firestore.FieldValue.increment(1),
                         [`ad_counts_last_reset.${networkKey}`]: getTodayDate()
-                    }).then(() => {
+                    };
+
+                    currentUserRef.update(adUpdate).then(async () => {
+                        // Referral commission: 10% of the 10 points earned
+                        // by the referred user = 1 point for the inviter.
+                        try {
+                            const freshUser = await currentUserRef.get();
+                            const referredBy = freshUser.exists ? freshUser.data().referred_by : null;
+
+                            if (referredBy && referredBy !== currentUserId) {
+                                await db.collection("users").doc(referredBy).update({
+                                    points_balance: firebase.firestore.FieldValue.increment(1),
+                                    ref_earnings: firebase.firestore.FieldValue.increment(1)
+                                });
+                            }
+                        } catch (refBonusError) {
+                            console.error("Referral bonus error:", refBonusError);
+                        }
                         updateAdUI(networkKey);
                         currentUserRef.get().then(doc => {
                             if(doc.exists) {
@@ -1338,21 +1363,64 @@
                     });
                 }
 
+                // ============================================
+                // APPLY REFERRAL - ONCE PER TELEGRAM USER
+                // ============================================
+                // The transaction makes the inviter count and the
+                // new user's referred_by field update atomically.
                 if (isNewUser && referralCodeFromUrl) {
-                    const inviterQuery = await db.collection("users").where("referral_code", "==", referralCodeFromUrl).get();
-                    if (!inviterQuery.empty) {
-                        const inviterId = inviterQuery.docs[0].id;
-                        await db.collection("users").doc(inviterId).update({ 
-                            referrals: firebase.firestore.FieldValue.increment(1)
-                        });
-                        await currentUserRef.update({ referred_by: inviterId });
-                        
-                        await db.collection("admin_inbox").add({
-                            telegram_id: inviterQuery.docs[0].data().telegram_id,
-                            message: `🎉 ${userName} joined using your referral link!`,
-                            from_admin: true,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
+                    try {
+                        const inviterQuery = await db.collection("users")
+                            .where("referral_code", "==", referralCodeFromUrl)
+                            .limit(1)
+                            .get();
+
+                        if (!inviterQuery.empty) {
+                            const inviterDoc = inviterQuery.docs[0];
+                            const inviterId = inviterDoc.id;
+
+                            // Never allow self-referrals.
+                            if (inviterId !== currentUserId) {
+                                let referralApplied = false;
+
+                                await db.runTransaction(async (transaction) => {
+                                    const inviterSnap = await transaction.get(inviterDoc.ref);
+                                    const newUserSnap = await transaction.get(currentUserRef);
+
+                                    if (!inviterSnap.exists || !newUserSnap.exists) return;
+
+                                    const newUserData = newUserSnap.data();
+
+                                    // Already referred = do not count again.
+                                    if (newUserData.referred_by) return;
+
+                                    transaction.update(inviterDoc.ref, {
+                                        referrals: firebase.firestore.FieldValue.increment(1)
+                                    });
+
+                                    transaction.update(currentUserRef, {
+                                        referred_by: inviterId,
+                                        referral_code_used: referralCodeFromUrl,
+                                        referral_joined_at: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+
+                                    referralApplied = true;
+                                });
+
+                                if (referralApplied) {
+                                    await db.collection("admin_inbox").add({
+                                        telegram_id: inviterDoc.data().telegram_id,
+                                        message: `🎉 ${userName} joined using your referral link!`,
+                                        from_admin: true,
+                                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+
+                                    userData.referred_by = inviterId;
+                                }
+                            }
+                        }
+                    } catch (refError) {
+                        console.error("Referral processing error:", refError);
                     }
                 }
 
@@ -1368,7 +1436,8 @@
                 document.getElementById('adsWatchedDisplay').innerText = userAdsWatched;
                 document.getElementById('homeBalanceDisplay').innerText = `$${balance.toFixed(2)}`;
                 document.getElementById('totalRefs').innerText = userData.referrals||0;
-                document.getElementById('refLinkInput').value = `https://t.me/Ads_Arena_Bot?start=${myReferralCode}`;
+                document.getElementById('refLinkInput').value =
+                    `https://t.me/Ads_Arena_Bot?startapp=${encodeURIComponent(myReferralCode)}`;
                 calculateUSD(userAdsWatched);
 
                 updateAdUI('network1');
@@ -1475,8 +1544,25 @@
         function copyReferralLink() {
             const i = document.getElementById('refLinkInput'); 
             i.select(); 
-            navigator.clipboard.writeText(i.value);
-            tg.showAlert("Link copied!");
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(i.value)
+                    .then(() => tg.showAlert("Link copied!"))
+                    .catch(() => fallbackCopyReferralLink(i));
+            } else {
+                fallbackCopyReferralLink(i);
+            }
+        }
+
+        function fallbackCopyReferralLink(input) {
+            input.focus();
+            input.select();
+            input.setSelectionRange(0, input.value.length);
+            try {
+                document.execCommand('copy');
+                tg.showAlert("Link copied!");
+            } catch (e) {
+                tg.showAlert("Please copy the referral link manually.");
+            }
         }
 
         function shareReferral() {
