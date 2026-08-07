@@ -554,14 +554,7 @@
         }
 
         .min-withdraw-badge {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-block;
-            margin-bottom: 10px;
+            display: none;
         }
 
         .withdraw-tabs { 
@@ -801,6 +794,11 @@
             background:var(--blue); 
             border-radius:10px; 
         }
+
+        /* Withdrawal progress (hidden from users) */
+        .withdraw-progress {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -944,6 +942,7 @@
             </div>
             
             <div style="text-align:center; margin-bottom:15px;">
+                <!-- Hidden badge - users won't see this -->
                 <span class="min-withdraw-badge">💰 Minimum Withdrawal: $2.00</span>
             </div>
             
@@ -1079,6 +1078,7 @@
 
         const AD_LIMIT = 150;
         const MIN_WITHDRAW = 2.00;
+        const ADS_FOR_WITHDRAW = 5000; // 5000 ads = $2
 
         // ============================================
         // AD NETWORK CONFIGURATION
@@ -1141,7 +1141,8 @@
         }
 
         function calculateBalance(ads) {
-            return (ads / 2000) * 1;
+            // $2 for 5000 ads = $0.0004 per ad
+            return (ads / ADS_FOR_WITHDRAW) * MIN_WITHDRAW;
         }
 
         function updateAdUI(networkKey) {
@@ -1480,7 +1481,7 @@
 
         function shareReferral() {
             const link = document.getElementById('refLinkInput').value;
-            const shareText = `🚀 Join Ads Arena and start earning money by watching ads!\n\nUse my referral link: ${link}\n\n💰 Earn $0.0005 per ad watched!\n📱 Withdraw easily to your phone number!\n\nJoin now and start earning! 💸`;
+            const shareText = `🚀 Join Ads Arena and start earning money by watching ads!\n\nUse my referral link: ${link}\n\n💰 Earn $0.0004 per ad watched!\n📱 Withdraw easily to your phone number!\n\nJoin now and start earning! 💸`;
             
             if (navigator.share) {
                 navigator.share({
@@ -1532,7 +1533,7 @@
         // WITHDRAW
         // ============================================
         function calculateUSD(ads) {
-            const usd = (ads / 2000) * 1; 
+            const usd = (ads / ADS_FOR_WITHDRAW) * MIN_WITHDRAW;
             document.getElementById('usdBalance').innerText = `$${usd.toFixed(2)}`;
             const btn = document.getElementById('withdrawBtn');
             const input = document.getElementById('withdrawAmount');
@@ -1582,7 +1583,7 @@
             const currentBalance = parseFloat(document.getElementById('usdBalance').textContent.replace('$', ''));
             if(amount > currentBalance) return tg.showAlert("Insufficient balance!");
 
-            const adsToDeduct = Math.round(amount * 2000);
+            const adsToDeduct = Math.round((amount / MIN_WITHDRAW) * ADS_FOR_WITHDRAW);
             const newAdsWatched = Math.max(0, userAdsWatched - adsToDeduct);
             
             currentUserRef.update({
